@@ -1,6 +1,6 @@
 # Tendermint Indexer
 
-A strongly consistent, resilient framework for setting up data indexers for [Tendermint RPC nodes](https://docs.tendermint.com/v0.37/rpc/#/).
+A framework for setting up data indexers for [Tendermint RPC nodes](https://docs.tendermint.com/v0.37/rpc/#/).
 
 ## Indexer Setup
 
@@ -14,20 +14,21 @@ Then, setup a basic indexer and start running it!
 
 ```typescript
 // index.ts
-import { type BlockRange, Persister, Indexer, Subscription, createIndexer, createExpBackoffRetrier, type EndpointType, type IndexerDataType, type EventIndexer, type BlockIndexer } from "tendermint-indexer";
+import { type BlockRange, Persister, Indexer, type Subscription, createIndexer, createExpBackoffRetrier, EndpointType, IndexerDataType, type EventIndexer, type BlockIndexer } from "tendermint-indexer";
 
 class BasicPersister implements Persister {
-  public getUnprocessedBlockRanges(): Promise<BlockRange[]> {
+  public async getUnprocessedBlockRanges(): Promise<BlockRange[]> {
     // TODO: Return all recorded block heights from the database
+    return [{startBlockHeight: 1, endBlockHeight: 100}]
   }
 
-  public persistBlock(blockHeight: number): Promise<void> {
+  public async persistBlock(blockHeight: number): Promise<void> {
     // TODO: Record blockHeight as being indexed in a database
   }
 }
 
 class BasicIndexer implements Indexer {
-  abstract persister: BasicPersister;
+persister: BasicPersister;
 
   constructor() {
     this.persister = new BasicPersister();
@@ -39,7 +40,9 @@ class BasicIndexer implements Indexer {
     eventType,
   } : EventIndexer) {
     // TODO: Replace with your own indexing logic!
+    console.log(blockHeight);
     console.log(eventAttributes);
+    console.log(eventType);
   }
 
   private async indexer2({
@@ -76,7 +79,7 @@ class BasicIndexer implements Indexer {
     ];
   }
 
-  public abstract destroy(): Promise<void> {
+  public async destroy(): Promise<void> {
     // TODO: handle destroy logic
   }
 }
@@ -90,9 +93,8 @@ const retrier = createExpBackoffRetrier({
 
 const indexer = await createIndexer({
   harness: {
-    indexers: [new BasicIndexer()]
+    indexers: [new BasicIndexer()],
     retrier,
-    subscriptions,
     type: EndpointType.WEBSOCKET,
     wsUrl: "wss://test-rpc-kujira.mintthemoon.xyz/websocket", // TODO: Replace with your RPC node websocket url
     httpUrl: "https://test-rpc-kujira.mintthemoon.xyz", // TODO: Replace with your RPC HTTP node url
@@ -119,16 +121,14 @@ There is a backfiller available to index old blocks. To set this up, follow the 
 
 ```typescript
 // backfill.ts
-import { createBackfiller, createExpBackoffRetrier } from "tendermint-indexer";
+import { createBackfiller, createExpBackoffRetrier, BackfillOrder } from "tendermint-indexer";
 
 const singleIndexer = new BasicIndexer();
 
 const backfiller = await createBackfiller({
   harness: {
     indexer: singleIndexer,
-    reconnectInterval: 1000,
     retrier,
-    subscriptions,
     httpUrl: "https://test-rpc-kujira.mintthemoon.xyz", // Replace with your RPC HTTP node url
   },
   backfillSetup: {
@@ -143,14 +143,14 @@ The backfiller will process blocks in descending order from largest block height
 
 ## How does the Indexer work?
 
-`tendermint-indexer` takes as input a **Websocket** or **HTTP Polling** connection type, a list of `Indexers`, and a `Retrier`. It performs the following steps:
+`tendermint-indexer` takes as input a `WebSocket` or `HTTP Polling` connection type, a list of `Indexers`, and a `Retrier`. Then, performs the following steps:
 
-1. Gets notified of new blocks through the **Websocket** or **HTTP Polling** connection.
-2. Adds blocks in ascending order of block height to a queue.
-3. Processes each block from the queue and passes subscribed Block, Transaction, or Event data to each `Indexer`.
+1. Gets notified of new blocks through the `WebSocket` or `HTTP Polling` connection.
+2. Adds blocks in increasing order of block height to a queue.
+3. Processes each block from the queue and passes subscribed block, transaction, or event data to each `Indexer`.
 4. After all block data for a specific height is passed to an `Indexer`, inform the `Indexer`'s `Persister`, which is a single source of truth on which blocks have been indexed.
 5. In case of network failure or errors, employ the `Retrier` to retry indexing.
 
 This guarantees that `tendermint-indexer` achieves **exactly-once semantics**, can **recover** from network failure, and delivers block data in **increasing order** of block height.
 
-The backfiller works in a similar way, but relies on an `Indexer`'s `Persister` to index the unprocessed blocks.
+The backfiller works in a similar way, but relies on an `Indexer`'s `Persister` to index and record the unprocessed blocks.
