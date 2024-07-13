@@ -1,4 +1,4 @@
-import { splitRangesEvenly, splitRangesBySize } from "../utils/splitRange";
+import { splitRangesEvenly, splitRangesBySize } from "../src/utils/splitRange";
 
 test("Single split", () => {
   const range = [
