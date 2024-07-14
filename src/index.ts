@@ -21,6 +21,7 @@ import { Indexer } from "./modules/indexer";
 import { Persister } from "./modules/persister";
 import type { BlockRange } from "./types/BlockRange";
 import type { IndexerHarness, BackfillHarness } from "./types/Harness";
+import { SQLPersister } from './modules/sqlPersister';
 
 export {
   BackfillOrder,
@@ -33,6 +34,7 @@ export {
   Indexer,
   IndexerDataType,
   Persister,
+  SQLPersister,
   type BackfillHarness,
   type BackfillSetup,
   type BlockIndexer,
