@@ -255,14 +255,16 @@ export class SQLPersister implements Persister {
       return;
     }
 
-    const shouldUpdateMax =
+    // Set to true if the current saved block range for an ascending backfill
+    // where the endBlockHeight keeps getting updated
+    const isAscendingBackfill =
       this.startBlockHeight < blockHeight &&
       this.prevBlockHeight + 1 === blockHeight;
 
     await this.updateMinOrMaxRecord(
-      shouldUpdateMax ? this.startBlockHeight : blockHeight,
-      shouldUpdateMax ? blockHeight : this.startBlockHeight,
-      shouldUpdateMax
+      isAscendingBackfill ? this.startBlockHeight : blockHeight,
+      isAscendingBackfill ? blockHeight : this.startBlockHeight,
+      isAscendingBackfill
     );
     this.prevBlockHeight = blockHeight;
   }
