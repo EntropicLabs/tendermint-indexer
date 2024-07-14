@@ -24,7 +24,7 @@ export class SQLPersister implements Persister {
     this.httpClient = httpClient;
   }
 
-  public async createTable() {
+  public async setup() {
     await this
       .runQuery(`CREATE TABLE IF NOT EXISTS "${this.blockHeightTableName}" (
         "id" SERIAL PRIMARY KEY,
@@ -67,7 +67,7 @@ export class SQLPersister implements Persister {
       endBlockHeight: deleteEndBlockHeight,
     } of toDelete) {
       await this.runQuery(
-        `DELETE FROM ${this.blockHeightTableName} WHERE "startBlockHeight"=${deleteStartBlockHeight} AND "endBlockHeight"=${deleteEndBlockHeight}`
+        `DELETE FROM "${this.blockHeightTableName}" WHERE "startBlockHeight"=${deleteStartBlockHeight} AND "endBlockHeight"=${deleteEndBlockHeight}`
       );
     }
   }
