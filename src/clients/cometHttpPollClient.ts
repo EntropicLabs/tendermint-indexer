@@ -8,7 +8,7 @@ import { CometHttpClient } from "./cometHttpClient";
 /**
  * Default HTTP polling delay in milliseconds
  */
-const HTTP_POLL_DELAY_MS = 2000;
+const HTTP_POLL_DELAY_MS = 3000;
 
 /**
  * Sets up a CometBFT HTTP poll connection to query block information
@@ -97,9 +97,9 @@ export class CometHttpPollClient extends Client {
    */
   protected async doListen() {
     while (this.isConnected) {
-      if (this.currentHeight == null)
+      if (this.currentHeight == null) {
         throw new Error("Current height is not set");
-
+      }
       // Poll current block heights
       const { latestBlockHeight } = await this.httpClient.getBlockHeights();
 
@@ -112,8 +112,9 @@ export class CometHttpPollClient extends Client {
         this.addEvent?.({
           blockHeight: blockHeightToAdd,
         });
-        this.currentHeight = blockHeightToAdd;
+        this.currentHeight = blockHeightToAdd + 1;
       }
+
       await sleep(this.pollIntervalMs);
     }
   }

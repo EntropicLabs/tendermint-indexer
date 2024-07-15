@@ -61,7 +61,7 @@ test("Successfully listen and destroy WebSocket Client", async () => {
   }
 }, 10000);
 
-test("Listen, disconnect, and re-listen", async () => {
+test("Successfully listen, disconnect, and re-listen WebSocket client", async () => {
   const retrier = createRetrier(
     {
       maxRetries: 3,
@@ -91,6 +91,7 @@ test("Listen, disconnect, and re-listen", async () => {
   expect(wsClient.connected).toBe(true);
   await sleep(4000);
   await wsClient.destroy();
+  await sleep(5000);
   await wsClient.listen();
   await sleep(4000);
   await wsClient.destroy();
@@ -98,7 +99,8 @@ test("Listen, disconnect, and re-listen", async () => {
   expect(gotEnd).toBe(true);
   expect(gotData).toBe(true);
   expect(gotDataSecond).toBe(true);
+
   for (let idx = 0; idx < blockData.length - 1; idx++) {
     expect(blockData[idx]).toBeLessThan(blockData[idx + 1]);
   }
-}, 14000);
+}, 20000);

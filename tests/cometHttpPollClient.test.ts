@@ -32,15 +32,13 @@ test("Successfully listen and destroy HTTP Poll Client", async () => {
   );
   await httpPollClient.listen();
   expect(httpPollClient.height).toBeGreaterThan(100);
-  await sleep(7000);
+  await sleep(10000);
   await httpPollClient.destroy();
   expect(gotStart).toBe(true);
   expect(gotEnd).toBe(true);
   expect(gotData).toBe(true);
 
-  console.log(blockData);
-
   for (let idx = 0; idx < blockData.length - 1; idx++) {
     expect(blockData[idx]).toBe(blockData[idx + 1] - 1);
   }
-}, 10000);
+}, 12000);

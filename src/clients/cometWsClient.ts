@@ -48,10 +48,7 @@ export class CometWsClient extends Client {
       this.ws = new WebSocket(this.wsUrl);
       const onOpen = () => {
         logger.info(`Connected to ${this.wsUrl}`);
-        this.ws?.off("open", onOpen);
-        this.ws?.off("error", onOpenError);
-        this.ws?.off("close", onDisconnect);
-
+        this.ws?.removeAllListeners();
         resolve();
       };
       const onOpenError = (error: any) => {
@@ -60,10 +57,9 @@ export class CometWsClient extends Client {
       };
 
       const onDisconnect = async (error: any) => {
-        this.ws?.off("open", onOpen);
-        this.ws?.off("error", onOpenError);
-        this.ws?.off("close", onDisconnect);
-        await this.destroyConnection();
+        this.ws?.removeAllListeners();
+        this.ws = null;
+        await super.disconnect();
         reject(new Error(`Disconnected from ${this.wsUrl}: ${error}`));
       };
 
@@ -161,12 +157,15 @@ export class CometWsClient extends Client {
         }
       };
 
-      const onDisconnect = async (error: any) => {
-        this.ws?.off("error", onError);
-        this.ws?.off("message", onMessage);
-        this.ws?.off("close", onDisconnect);
-        await this.destroyConnection();
-        reject(new Error(`Disconnected from ${this.wsUrl}: ${error}`));
+      const onDisconnect = async (code: number, reason: Buffer) => {
+        this.ws?.removeAllListeners();
+        this.ws = null;
+        await super.disconnect();
+
+        // Throw error if not a normal closure or going away
+        if (!(code === 1000 || code === 1001)) {
+          reject(new Error(`Disconnected from ${this.wsUrl}: ${reason}`));
+        }
       };
 
       this.ws?.on("error", onError);
@@ -180,17 +179,10 @@ export class CometWsClient extends Client {
   }
 
   /**
-   * Sets WebSocket connection to null and records disconnection event
-   */
-  private async destroyConnection() {
-    this.ws = null;
-    await super.disconnect();
-  }
-
-  /**
    * Closes WebSocket connection
    */
   protected async disconnect(): Promise<void> {
-    this.ws?.close();
+    // Disconnect with normal closure
+    this.ws?.close(1000);
   }
 }
