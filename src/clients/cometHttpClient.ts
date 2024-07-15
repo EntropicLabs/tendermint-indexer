@@ -9,8 +9,14 @@ import type { BlockData } from "../types/BlockData";
  * Sets up a CometBFT HTTP connection to query block information
  */
 export class CometHttpClient {
-  private tmClient: Tendermint37Client;
-  private errorRetrier: ErrorRetrier;
+  /**
+   * Tendermint client used to make HTTP RPC calls
+   */
+  private readonly tmClient: Tendermint37Client;
+  /**
+   * Error retrier that wraps around HTTP RPC calls
+   */
+  private readonly errorRetrier: ErrorRetrier;
 
   constructor(tmClient: Tendermint37Client, retrier: Retrier) {
     this.tmClient = tmClient;

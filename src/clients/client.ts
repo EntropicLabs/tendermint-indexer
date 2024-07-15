@@ -9,6 +9,7 @@ export abstract class Client {
   protected isConnected: boolean = false;
   protected currentHeight: number | null = null;
   protected retrier: Retrier;
+  // Callback for new block or connect events
   protected parseEvents: ParseEventsFunction | null = null;
 
   public get connected(): boolean {
@@ -22,7 +23,7 @@ export abstract class Client {
   protected constructor(
     retrier: Retrier,
     parseEvents?: ParseEventsFunction,
-    startHeight?: number,
+    startHeight?: number
   ) {
     this.retrier = retrier;
     this.currentHeight = startHeight ?? null;
@@ -45,15 +46,20 @@ export abstract class Client {
 
   protected abstract doListen(): Promise<void>;
 
+  /**
+   * Connects to the network client and starts listening for new block events
+   */
   public async listen(): Promise<void> {
     return this.retrier.wrap(
       async (success, retry) => {
         if (!this.isConnected) {
-          await this.connect().catch(async (error) => {
-            await retry(error);
-          }).then(() => {
-            success();
-          })
+          await this.connect()
+            .catch(async (error) => {
+              await retry(error);
+            })
+            .then(() => {
+              success();
+            });
         }
 
         this.doListen().catch(async (error) => {
@@ -67,7 +73,7 @@ export abstract class Client {
         onFailedLastAttempt: () => {
           logger.fatal("Max client retries exceeded, aborting...");
         },
-      },
+      }
     );
   }
 }

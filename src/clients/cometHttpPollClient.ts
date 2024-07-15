@@ -11,7 +11,7 @@ const HTTP_POLL_DELAY_MS = 2000;
  * Sets up a CometBFT HTTP poll connection to query block information
  */
 export class CometHttpPollClient extends Client {
-  private pollInterval: number;
+  private pollIntervalMs: number;
   private endpoint: string;
   private httpClient: CometHttpClient;
 
@@ -19,13 +19,13 @@ export class CometHttpPollClient extends Client {
     httpClient: CometHttpClient,
     endpoint: string,
     retrier: Retrier,
-    pollInterval: number,
+    pollIntervalMs: number,
     parseEvents?: ParseEventsFunction,
-    startHeight?: number,
+    startHeight?: number
   ) {
     super(retrier, parseEvents, startHeight);
     this.httpClient = httpClient;
-    this.pollInterval = pollInterval;
+    this.pollIntervalMs = pollIntervalMs;
     this.endpoint = endpoint;
   }
 
@@ -34,16 +34,16 @@ export class CometHttpPollClient extends Client {
     retrier: Retrier,
     parseEvents?: ParseEventsFunction,
     startHeight?: number,
-    pollInterval?: number,
+    pollIntervalMs?: number
   ) {
     const httpClient = await CometHttpClient.create(endpoint, retrier);
     return new CometHttpPollClient(
       httpClient,
       endpoint,
       retrier,
-      pollInterval || HTTP_POLL_DELAY_MS,
+      pollIntervalMs || HTTP_POLL_DELAY_MS,
       parseEvents,
-      startHeight,
+      startHeight
     );
   }
 
@@ -55,7 +55,7 @@ export class CometHttpPollClient extends Client {
     if (this.currentHeight) {
       if (earliestBlockHeight && earliestBlockHeight > this.currentHeight) {
         throw new Error(
-          `Requested start height ${this.currentHeight} out of range [${earliestBlockHeight}, ${latestBlockHeight}]`,
+          `Requested start height ${this.currentHeight} out of range [${earliestBlockHeight}, ${latestBlockHeight}]`
         );
       }
     } else {
@@ -77,7 +77,7 @@ export class CometHttpPollClient extends Client {
       this.parseEvents?.({
         blockHeight: this.currentHeight,
       });
-      await sleep(this.pollInterval);
+      await sleep(this.pollIntervalMs);
       this.currentHeight++;
     }
   }
