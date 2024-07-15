@@ -16,6 +16,10 @@ const PROCESS_QUEUE_EVERY_MS = 100;
 // Delay before the indexer and its subscriptions are destroyed
 const DESTROY_DELAY_MS = 3000;
 
+/**
+ * Create an indexer for indexing live, new block data. 
+ * Returns a start, connection status, and destroy callback.
+ */
 export default async function createIndexer({
   harness,
   minLogLevel = "trace",

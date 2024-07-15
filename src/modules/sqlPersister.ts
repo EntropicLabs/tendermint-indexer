@@ -29,6 +29,9 @@ export class SQLPersister implements Persister {
     this.httpClient = httpClient;
   }
 
+  /**
+   * Creates a new SQL database to record block height ranges
+   */
   public async setup() {
     await this
       .runQuery(`CREATE TABLE IF NOT EXISTS "${this.blockHeightTableName}" (
@@ -39,6 +42,10 @@ export class SQLPersister implements Persister {
       `);
   }
 
+  /**
+   * Run a SQL query to fetch all processed block heights
+   * @returns Processed block ranges
+   */
   public async getProcessedBlockRanges(): Promise<BlockRange[]> {
     const rawProcessedBlocks = await this.runQuery(
       `SELECT * FROM "${this.blockHeightTableName}"`
@@ -64,30 +71,38 @@ export class SQLPersister implements Persister {
     return blockRanges;
   }
 
-  private async mergeBlockRange(toDelete: BlockRange[]) {
+  /**
+   * Merges contiguous block ranges to keep SQL block height table
+   * size to a minimum
+   * @param blockRangesToMerge Block ranges that are being merged
+   */
+  private async mergeBlockRange(blockRangesToMerge: BlockRange[]) {
     logger.info("Merging the following block height records:");
-    logger.info(toDelete);
+    logger.info(blockRangesToMerge);
 
     // Insert the merged record
     await this.runQuery(
       `INSERT INTO "${
         this.blockHeightTableName
       }" ("startBlockHeight","endBlockHeight") VALUES (${
-        toDelete[0].startBlockHeight
-      },${toDelete[toDelete.length - 1].endBlockHeight})`
+        blockRangesToMerge[0].startBlockHeight
+      },${blockRangesToMerge[blockRangesToMerge.length - 1].endBlockHeight})`
     );
 
     // Delete the smaller ranges
     for (const {
       startBlockHeight: deleteStartBlockHeight,
       endBlockHeight: deleteEndBlockHeight,
-    } of toDelete) {
+    } of blockRangesToMerge) {
       await this.runQuery(
         `DELETE FROM "${this.blockHeightTableName}" WHERE "startBlockHeight"=${deleteStartBlockHeight} AND "endBlockHeight"=${deleteEndBlockHeight}`
       );
     }
   }
 
+  /**
+   * Checks and merges block height records
+   */
   private async mergeBlockRanges() {
     const blockRecords = await this.getProcessedBlockRanges();
 
@@ -204,6 +219,13 @@ export class SQLPersister implements Persister {
     return unprocessedBlockRanges;
   }
 
+  /**
+   * Inserts a new block range (startBlockHeight, endBlockHeight)
+   * or updates an existing block height record
+   * @param startBlockHeight Start block height
+   * @param endBlockHeight End block height
+   * @param shouldUpdateMax True if the endBlockHeight column is to  be updated
+   */
   private async updateMinOrMaxRecord(
     startBlockHeight: number,
     endBlockHeight: number,
@@ -241,6 +263,10 @@ export class SQLPersister implements Persister {
       `);
   }
 
+  /**
+   * Records a block as having been successfully indexed or backfilled in the SQL database.
+   * @param blockHeight block height
+   */
   public async persistBlock(blockHeight: number): Promise<void> {
     if (
       this.startBlockHeight == 0 ||

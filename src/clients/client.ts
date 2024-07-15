@@ -9,9 +9,9 @@ export abstract class Client {
   protected isConnected: boolean = false;
   protected currentHeight: number | null = null;
   protected retrier: Retrier;
-  /** 
-   * Callback for new block or connect events 
-  **/
+  /**
+   * Callback for new block or connect events
+   **/
   protected addEvent: AddEventFunction | null = null;
 
   public get connected(): boolean {
@@ -22,30 +22,41 @@ export abstract class Client {
     return this.currentHeight;
   }
 
-  protected constructor(
-    retrier: Retrier,
-    parseEvents?: ParseEventsFunction,
-    startHeight?: number,
-  ) {
+  /**
+   * @param retrier Retrier used for reconnecting to network client
+   * @param addEvent Optional callback for recording new block or connection events
+   */
+  protected constructor(retrier: Retrier, addEvent?: AddEventFunction) {
     this.retrier = retrier;
-    this.currentHeight = startHeight ?? null;
-    this.parseEvents = parseEvents ?? null;
+    this.addEvent = addEvent ?? null;
   }
 
+  /**
+   * Connect to the network client
+   */
   protected async connect(): Promise<void> {
     this.isConnected = true;
     this.addEvent?.({ isStart: true });
   }
 
+  /**
+   * Disconnect from the network client
+   */
   protected async disconnect(): Promise<void> {
     this.isConnected = false;
     this.addEvent?.({ isStart: false });
   }
 
+  /**
+   * Destroy the network client
+   */
   public async destroy(): Promise<void> {
     await this.disconnect();
   }
 
+  /**
+   * Start listening for new block events
+   */
   protected abstract doListen(): Promise<void>;
 
   /**

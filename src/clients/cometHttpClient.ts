@@ -9,26 +9,35 @@ import type { BlockData } from "../types/BlockData";
  * Sets up a CometBFT HTTP connection to query block information
  */
 export class CometHttpClient {
-  /**
-   * Tendermint client used to make HTTP RPC calls
-   */
   private readonly tmClient: Tendermint37Client;
-  /**
-   * Error retrier that wraps around HTTP RPC calls
-   */
   private readonly errorRetrier: ErrorRetrier;
 
+  /**
+   * @param tmClient Tendermint endermint client used to make HTTP RPC calls
+   * @param retrier Error retrier that wraps around HTTP RPC calls
+   */
   constructor(tmClient: Tendermint37Client, retrier: Retrier) {
     this.tmClient = tmClient;
     this.errorRetrier = createErrorRetrier(retrier);
   }
 
+  /**
+   * Create a new CometHTTPClient
+   * @param endpoint RPC HTTP endpoint
+   * @param retrier Error retrier that wraps around HTTP RPC calls
+   * @returns CometHTTPClient
+   */
   static async create(endpoint: string, retrier: Retrier) {
     const rpcClient = new HttpClient(endpoint);
     const tmClient = await Tendermint37Client.create(rpcClient);
     return new CometHttpClient(tmClient, retrier);
   }
 
+  /**
+   * Queries event, transaction, block header, and block results for the queried block
+   * @param height Block height
+   * @returns Queried block data
+   */
   public async getBlockData(height: number): Promise<BlockData> {
     return this.errorRetrier.wrap(
       async () => {
@@ -63,6 +72,11 @@ export class CometHttpClient {
     );
   }
 
+  /**
+   * Queries block time
+   * @param height block height
+   * @returns block time with nanosecond precision
+   */
   public async getBlockTime(height: number) {
     return this.errorRetrier.wrap(
       async () => {
@@ -80,6 +94,10 @@ export class CometHttpClient {
     );
   }
 
+  /**
+   * Queries the earliest and latest block heights stored by an RPC node
+   * @returns earliest and latest block heights
+   */
   public async getBlockHeights() {
     return this.errorRetrier.wrap(
       async () => {

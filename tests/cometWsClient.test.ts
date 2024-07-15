@@ -37,6 +37,7 @@ test("Successfully listen and destroy WebSocket Client", async () => {
   let gotStart = false;
   let gotEnd = false;
   let gotData = false;
+  const blockData: number[] = [];
 
   const wsClient = await CometWsClient.create(TEST_WS_URL, retrier, (event) => {
     if (isConnectionEvent(event)) {
@@ -45,6 +46,7 @@ test("Successfully listen and destroy WebSocket Client", async () => {
       return;
     }
     gotData = true;
+    blockData.push(event.blockHeight);
   });
   await wsClient.listen();
   expect(wsClient.connected).toBe(true);
@@ -53,6 +55,10 @@ test("Successfully listen and destroy WebSocket Client", async () => {
   expect(gotStart).toBe(true);
   expect(gotEnd).toBe(true);
   expect(gotData).toBe(true);
+
+  for (let idx = 0; idx < blockData.length - 1; idx++) {
+    expect(blockData[idx]).toBe(blockData[idx + 1] - 1);
+  }
 }, 10000);
 
 test("Listen, disconnect, and re-listen", async () => {
@@ -67,6 +73,7 @@ test("Listen, disconnect, and re-listen", async () => {
   let gotEnd = false;
   let gotData = true;
   let gotDataSecond = false;
+  const blockData: number[] = [];
 
   const wsClient = await CometWsClient.create(TEST_WS_URL, retrier, (event) => {
     if (isConnectionEvent(event)) {
@@ -78,6 +85,7 @@ test("Listen, disconnect, and re-listen", async () => {
     if (gotEnd) {
       gotDataSecond = true;
     }
+    blockData.push(event.blockHeight);
   });
   await wsClient.listen();
   expect(wsClient.connected).toBe(true);
@@ -90,4 +98,7 @@ test("Listen, disconnect, and re-listen", async () => {
   expect(gotEnd).toBe(true);
   expect(gotData).toBe(true);
   expect(gotDataSecond).toBe(true);
+  for (let idx = 0; idx < blockData.length - 1; idx++) {
+    expect(blockData[idx]).toBeLessThan(blockData[idx + 1]);
+  }
 }, 14000);

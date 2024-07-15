@@ -3,6 +3,9 @@ import { EndpointType } from "../types/EndpointType";
 import type { IndexerHarness } from "../types/Harness";
 import type { AddEventFunction } from "../types/AddEventFunction";
 
+/**
+ * Creates and returns a WebSocket or HTTP Polling Subscription client
+ */
 export async function createSubscriptionClient({
   harness,
   addEvent,

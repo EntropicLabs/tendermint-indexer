@@ -9,6 +9,11 @@ const LOG_PER_BLOCKS = 10000;
 /**
  * Gets all of events for blocks within an inclusive range of heights
  * and passes it to relevant indexers.
+ * @param backfillOrder Backfill order
+ * @param harness Harness containing indexers and their subscriptions
+ * @param httpClient HTTP client used to query block data
+ * @param maxBlockHeight Minimum block height of range
+ * @param minBlockHeight Maximum block height of range
  */
 export default async function backfillBlockRange({
   backfillOrder,
@@ -17,7 +22,9 @@ export default async function backfillBlockRange({
   maxBlockHeight,
   minBlockHeight,
 }: {
-  backfillOrder: BackfillOrder;
+  backfillOrder:
+    | typeof BackfillOrder.ASCENDING
+    | typeof BackfillOrder.DESCENDING;
   harness: BackfillHarness;
   httpClient: CometHttpClient;
   maxBlockHeight: number;
@@ -45,8 +52,8 @@ export default async function backfillBlockRange({
         logger.info(
           `Processed blocks ${blockHeight} - ${Math.min(
             blockHeight + (LOG_PER_BLOCKS - 1),
-            maxBlockHeight,
-          )}`,
+            maxBlockHeight
+          )}`
         );
       }
 
@@ -54,8 +61,8 @@ export default async function backfillBlockRange({
         logger.info(
           `Processed blocks with heights ${Math.max(
             minBlockHeight,
-            blockHeight - (LOG_PER_BLOCKS - 1),
-          )} - ${blockHeight}`,
+            blockHeight - (LOG_PER_BLOCKS - 1)
+          )} - ${blockHeight}`
         );
       }
 

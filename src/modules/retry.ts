@@ -1,16 +1,16 @@
 import { sleep } from "../utils/sleep";
 
-export type FailureHandler<T> = (
-  error: unknown,
-  attempt: number
-) => T | Promise<T>;
+/**
+ * Handler for a failure callback
+ */
+type FailureHandler = (error: unknown, attempt: number) => void;
 
 /**
- * Callbacks when retries are invoked
+ * Failure callbacks when retries are invoked
  */
-export type WrapOptions = {
-  onFailedAttempt?: FailureHandler<void>;
-  onFailedLastAttempt?: FailureHandler<void>;
+type WrapOptions = {
+  onFailedAttempt?: FailureHandler;
+  onFailedLastAttempt?: FailureHandler;
 };
 
 /**
@@ -36,28 +36,49 @@ export interface ErrorRetrier {
   ): Promise<T>;
 }
 
-export type BaseRetrierOptions = {
+type BaseRetrierOptions = {
+  /**
+   * Maximum number of retries before stopping and throwing an error
+   */
   maxRetries?: number;
 };
 
-export type IntervalRetrierOptions = BaseRetrierOptions & {
-  interval: number;
-  jitter?: number;
-};
-
-export type ExpBackoffRetrierOptions = BaseRetrierOptions & {
+type ExpBackoffRetrierOptions = BaseRetrierOptions & {
+  /**
+   * Exponential factor in exponential backoff
+   */
   expFactor: number;
+  /**
+   * Initial interval in exponential backoff
+   */
   initialInterval: number;
+  /**
+   * Random jitter added to the time to wait
+   */
   jitter?: number;
+  /**
+   * Maximum threshold before switching to linear backoff
+   */
   maxInterval?: number;
 };
 
+/**
+ * Creates a function that checks if another retry is neccessary
+ * @param maxRetries Maximum number of retries before stopping and throwing an error
+ * @returns Function that returns true if another retry is necessary
+ */
 function createShouldRetry({
   maxRetries,
 }: BaseRetrierOptions): (error: unknown, attempt: number) => boolean {
   return maxRetries == null ? () => true : (_, attempt) => attempt < maxRetries;
 }
 
+/**
+ * Creates a retrier with success and retry callbacks
+ * @param options retrier options
+ * @param getNextInterval function for fetching time to wait before another retry
+ * @returns Wrapper around logic that needs to be retried
+ */
 export const createRetrier = (
   options: BaseRetrierOptions,
   getNextInterval: (attempt: number) => number
@@ -66,7 +87,7 @@ export const createRetrier = (
     wrap: async <T>(
       callback: (
         success: () => void,
-        error: (error: unknown) => Promise<T>
+        retry: (error: unknown) => Promise<T>
       ) => Promise<T> | T,
       { onFailedAttempt, onFailedLastAttempt }: WrapOptions = {}
     ): Promise<T> => {
@@ -96,6 +117,11 @@ export const createRetrier = (
   };
 };
 
+/**
+ * Creates a retrier that catches errors and triggers retries on thrown errors
+ * @param retrier Basic retrier
+ * @returns An error retrier wrapped around the basic retrier
+ */
 export const createErrorRetrier = (retrier: Retrier): ErrorRetrier => {
   return {
     wrap: async <T>(
@@ -122,6 +148,11 @@ export const createErrorRetrier = (retrier: Retrier): ErrorRetrier => {
   };
 };
 
+/**
+ * Creates an exponential backoff retrier
+ * @param options Exponential backoff options
+ * @returns Exponential backoff retrier
+ */
 export const createExpBackoffRetrier = (
   options: Partial<ExpBackoffRetrierOptions> = {}
 ): Retrier => {

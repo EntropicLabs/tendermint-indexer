@@ -20,8 +20,7 @@ export class CometWsClient extends Client {
    * @param wsUrl Websocket client URL
    * @param retrier Retrier for reconnecting to websocket client on failure
    * @param addEvent Optional callback for recording new block or connection events
-   * @param startHeight 
-   * @returns 
+   * @returns CometWsClient
    */
   static async create(
     wsUrl: string,
@@ -31,6 +30,11 @@ export class CometWsClient extends Client {
     return new CometWsClient(wsUrl, retrier, addEvent);
   }
 
+  /**
+   * @param wsUrl Websocket client URL
+   * @param retrier Retrier for reconnecting to websocket client on failure
+   * @param addEvent Optional callback for recording new block or connection events
+   */
   constructor(
     wsUrl: string,
     retrier: Retrier,
@@ -40,6 +44,9 @@ export class CometWsClient extends Client {
     this.wsUrl = wsUrl;
   }
 
+  /**
+   * Connect to WebSocket client and retry on error or disconnect
+   */
   protected async connect() {
     const connectionPromise = new Promise<void>((resolve, reject) => {
       this.ws = new WebSocket(this.wsUrl);
@@ -73,6 +80,11 @@ export class CometWsClient extends Client {
     super.connect();
   }
 
+  /**
+   * Parses string data received from WebSocket connection into a Tendermint RPC Event
+   * @param data Raw string data
+   * @returns Tendermint RPC event
+   */
   private parseMessage(data: string): WSEvent | null {
     try {
       const parsedMessage = JSON.parse(data.toString());
@@ -92,6 +104,9 @@ export class CometWsClient extends Client {
     }
   }
 
+  /**
+   * Sends a new block subscription
+   */
   private sendNewBlockSubscription() {
     const subscriptionQuery = {
       jsonrpc: "2.0",
@@ -105,6 +120,9 @@ export class CometWsClient extends Client {
     this.ws?.send(JSON.stringify(subscriptionQuery));
   }
 
+  /**
+   * Start listening for new block events
+   */
   protected async doListen() {
     if (!this.ws) throw new Error("Websocket is not connected");
 
@@ -162,11 +180,17 @@ export class CometWsClient extends Client {
     await listenPromise;
   }
 
+  /**
+   * Sets WebSocket connection to null and records disconnection event
+   */
   private async destroyConnection() {
     this.ws = null;
     await super.disconnect();
   }
 
+  /**
+   * Closes WebSocket connection
+   */
   protected async disconnect(): Promise<void> {
     this.ws?.close();
   }
