@@ -18,7 +18,7 @@ export default async function createBackfiller({
 
   const httpClient = await CometHttpClient.create(
     harness.httpUrl,
-    harness.retrier,
+    harness.retrier
   );
 
   async function start() {
@@ -37,7 +37,7 @@ export default async function createBackfiller({
         const sortNum = backfillOrder === BackfillOrder.ASCENDING ? 1 : -1;
 
         unprocessedBlockRanges.sort(
-          (a, b) => sortNum * (a.startBlockHeight - b.startBlockHeight),
+          (a, b) => sortNum * (a.startBlockHeight - b.startBlockHeight)
         );
 
         if (unprocessedBlockRanges.length > 0) {
@@ -89,19 +89,20 @@ export default async function createBackfiller({
                   httpClient,
                   maxBlockHeight: endBlockHeight,
                   minBlockHeight: startBlockHeight,
-                }),
-            ),
+                })
+            )
           );
         }
         break;
       case BackfillOrder.SPECIFIC:
-        const { blockHeightsToProcess } = backfillSetup;
+        const { blockHeightsToProcess, shouldPersist } = backfillSetup;
 
         for (const blockHeight of blockHeightsToProcess) {
           await backfillBlock({
             blockHeight,
             harness,
             httpClient,
+            shouldPersist,
           });
         }
         break;

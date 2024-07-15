@@ -19,6 +19,7 @@ export type CreateBackfillerFunction = {
     | {
         backfillOrder: typeof BackfillOrder.SPECIFIC;
         blockHeightsToProcess: number[];
+        shouldPersist: boolean;
       };
   harness: BackfillHarness;
   minLogLevel?: LevelWithSilentOrString;
