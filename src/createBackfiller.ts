@@ -97,13 +97,14 @@ export default async function createBackfiller({
         }
         break;
       case BackfillOrder.SPECIFIC:
-        const { blockHeightsToProcess } = backfillSetup;
+        const { blockHeightsToProcess, shouldPersist } = backfillSetup;
 
         for (const blockHeight of blockHeightsToProcess) {
           await backfillBlock({
             blockHeight,
             harness,
             httpClient,
+            shouldPersist,
           });
         }
         break;

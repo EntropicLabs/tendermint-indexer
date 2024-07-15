@@ -9,10 +9,12 @@ export async function backfillBlock({
   blockHeight,
   harness,
   httpClient,
+  shouldPersist = true,
 }: {
   blockHeight: number;
   harness: BackfillHarness;
   httpClient: CometHttpClient;
+  shouldPersist?: boolean;
 }) {
   const blockData = await httpClient.getBlockData(blockHeight);
 
@@ -25,5 +27,6 @@ export async function backfillBlock({
   await processEventsBySubscription({
     indexers: [harness.indexer],
     newBlockEvent,
+    shouldPersist,
   });
 }
