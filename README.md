@@ -1,6 +1,6 @@
 # Tendermint Indexer
 
-A framework for setting up data indexers for [Tendermint RPC nodes](https://docs.tendermint.com/v0.37/rpc/#/).
+A framework for setting up data indexers for Tendermint RPC nodes.
 
 ## Indexer Setup
 

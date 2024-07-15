@@ -3,6 +3,7 @@ import { Persister } from "./persister";
 import { CometHttpClient } from "../clients/cometHttpClient";
 import mapAndFilterNull from "../utils/mapAndFilterNull";
 import logger from "./logger";
+import { isNumber } from "../utils/isNumber";
 
 type DBJSON = { [key: string]: any };
 type SQLQueryFunction = (query: string) => Promise<DBJSON[]>;
@@ -39,10 +40,21 @@ export class SQLPersister implements Persister {
       `SELECT * FROM "${this.blockHeightTableName}"`
     );
 
-    const blockRanges: BlockRange[] = rawProcessedBlocks.map((block) => ({
-      startBlockHeight: block.startBlockHeight,
-      endBlockHeight: block.endBlockHeight,
-    }));
+    const blockRanges: BlockRange[] = rawProcessedBlocks.map((block) => {
+      if (
+        !isNumber(block.startBlockHeight) ||
+        !isNumber(block.endBlockHeight)
+      ) {
+        throw new Error(
+          `Query returns a block with non-number height ${block.startBlockHeight}, ${block.endBlockHeight}`
+        );
+      }
+
+      return {
+        startBlockHeight: block.startBlockHeight,
+        endBlockHeight: block.endBlockHeight,
+      };
+    });
 
     blockRanges.sort((a, b) => a.startBlockHeight - b.startBlockHeight);
     return blockRanges;
@@ -243,14 +255,16 @@ export class SQLPersister implements Persister {
       return;
     }
 
-    const shouldUpdateMax =
+    // Set to true if the current saved block range for an ascending backfill
+    // where the endBlockHeight keeps getting updated
+    const isAscendingBackfill =
       this.startBlockHeight < blockHeight &&
       this.prevBlockHeight + 1 === blockHeight;
 
     await this.updateMinOrMaxRecord(
-      shouldUpdateMax ? this.startBlockHeight : blockHeight,
-      shouldUpdateMax ? blockHeight : this.startBlockHeight,
-      shouldUpdateMax
+      isAscendingBackfill ? this.startBlockHeight : blockHeight,
+      isAscendingBackfill ? blockHeight : this.startBlockHeight,
+      isAscendingBackfill
     );
     this.prevBlockHeight = blockHeight;
   }
