@@ -63,7 +63,7 @@ export type WSEvent = {
  * @returns True if the data is a WSEventResult.
  */
 export function isWSEventResult(
-  data: WSEventResult | Record<string, never>,
+  data: WSEventResult | Record<string, never>
 ): data is WSEventResult {
   return Object.keys(data).length > 0;
 }
@@ -96,36 +96,6 @@ export function isWSEvent(data: any): data is WSEvent {
   }
 
   return true;
-}
-
-/**
- * Type guard for RawTmEvent.
- * @param obj - The object to check.
- * @returns True if the object is a RawTmEvent.
- */
-export function isRawTmEvent(obj: any): obj is RawTmEvent {
-  return (
-    typeof obj === "object" &&
-    obj !== null &&
-    typeof obj.type === "string" &&
-    Array.isArray(obj.attributes) &&
-    obj.attributes.every(
-      (attr: any) =>
-        typeof attr === "object" &&
-        attr !== null &&
-        typeof attr.key === "string" &&
-        typeof attr.value === "string",
-    )
-  );
-}
-
-/**
- * Type guard for an array of RawTmEvent.
- * @param obj - The object to check.
- * @returns True if the object is an array of RawTmEvent.
- */
-export function isRawTmEventArray(obj: any): obj is RawTmEvent[] {
-  return Array.isArray(obj) && obj.every(isRawTmEvent);
 }
 
 /**

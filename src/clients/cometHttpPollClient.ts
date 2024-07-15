@@ -20,10 +20,9 @@ export class CometHttpPollClient extends Client {
     endpoint: string,
     retrier: Retrier,
     pollInterval: number,
-    parseEvents?: ParseEventsFunction,
-    startHeight?: number,
+    parseEvents?: ParseEventsFunction
   ) {
-    super(retrier, parseEvents, startHeight);
+    super(retrier, parseEvents);
     this.httpClient = httpClient;
     this.pollInterval = pollInterval;
     this.endpoint = endpoint;
@@ -33,8 +32,7 @@ export class CometHttpPollClient extends Client {
     endpoint: string,
     retrier: Retrier,
     parseEvents?: ParseEventsFunction,
-    startHeight?: number,
-    pollInterval?: number,
+    pollInterval?: number
   ) {
     const httpClient = await CometHttpClient.create(endpoint, retrier);
     return new CometHttpPollClient(
@@ -42,8 +40,7 @@ export class CometHttpPollClient extends Client {
       endpoint,
       retrier,
       pollInterval || HTTP_POLL_DELAY_MS,
-      parseEvents,
-      startHeight,
+      parseEvents
     );
   }
 
@@ -55,7 +52,7 @@ export class CometHttpPollClient extends Client {
     if (this.currentHeight) {
       if (earliestBlockHeight && earliestBlockHeight > this.currentHeight) {
         throw new Error(
-          `Requested start height ${this.currentHeight} out of range [${earliestBlockHeight}, ${latestBlockHeight}]`,
+          `Requested start height ${this.currentHeight} out of range [${earliestBlockHeight}, ${latestBlockHeight}]`
         );
       }
     } else {

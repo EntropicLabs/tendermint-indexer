@@ -49,7 +49,7 @@ function createShouldRetry({
   return maxRetries == null ? () => true : (_, attempt) => attempt < maxRetries;
 }
 
-const createRetrier = (
+export const createRetrier = (
   options: BaseRetrierOptions,
   getNextInterval: (attempt: number) => number,
 ): Retrier => {

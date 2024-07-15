@@ -1,7 +1,7 @@
 import type { BlockRange } from "../types/BlockRange";
 import { Persister } from "./persister";
 import { CometHttpClient } from "../clients/cometHttpClient";
-import { mapAndFilterNull } from "../utils/mapAndFilterNull";
+import mapAndFilterNull from "../utils/mapAndFilterNull";
 import logger from "./logger";
 import { isNumber } from "../utils/isNumber";
 
