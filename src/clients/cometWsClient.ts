@@ -85,11 +85,10 @@ export class CometWsClient extends Client {
   }
 
   private sendNewBlockSubscription() {
-    let queryId = 1;
     const subscriptionQuery = {
       jsonrpc: "2.0",
       method: "subscribe",
-      id: (queryId++).toString(),
+      id: 1,
       params: {
         query: "tm.event='NewBlock'",
       },
@@ -111,7 +110,7 @@ export class CometWsClient extends Client {
         const event = this.parseMessage(data.toString());
         if (event) {
           if (!isWSEventResult(event.result)) {
-            logger.warn("Unstake result response is empty");
+            // Got a response with no event data
             return;
           }
 

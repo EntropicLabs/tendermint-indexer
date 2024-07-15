@@ -2,6 +2,9 @@ import logger from "../modules/logger";
 import type { Retrier } from "../modules/retry";
 import type { ParseEventsFunction } from "../types/ParseEventsFunction";
 
+/**
+ * Interface for a Network client that listens for new block events
+ */
 export abstract class Client {
   protected isConnected: boolean = false;
   protected currentHeight: number | null = null;

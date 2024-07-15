@@ -36,7 +36,7 @@ export class CometHttpClient {
           .reduce(
             (tmEventAccArr, currTmEventArr) =>
               tmEventAccArr.concat(currTmEventArr),
-            [],
+            []
           );
 
         return {
@@ -53,7 +53,7 @@ export class CometHttpClient {
         onFailedLastAttempt: () => {
           logger.error("getBlockData(): Max retries exceeded, aborting...");
         },
-      },
+      }
     );
   }
 
@@ -70,7 +70,7 @@ export class CometHttpClient {
         onFailedLastAttempt: () => {
           logger.error("getBlockTime(): Max retries exceeded, aborting...");
         },
-      },
+      }
     );
   }
 
@@ -89,10 +89,10 @@ export class CometHttpClient {
         },
         onFailedLastAttempt: (error) => {
           logger.error(
-            `getBlockHeights(): Max retries exceeded, aborting... ${error}`,
+            `getBlockHeights(): Max retries exceeded, aborting... ${error}`
           );
         },
-      },
+      }
     );
   }
 }

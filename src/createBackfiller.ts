@@ -6,7 +6,9 @@ import { splitRangeEvenly, splitRangesBySize } from "./utils/splitRange";
 import { backfillBlock } from "./utils/backfillBlock";
 import logger, { setMinLogLevel } from "./modules/logger";
 
-const MIN_BLOCKS_PER_THREAD = 100;
+// Minimum number of blocks that be processed by a single process when parallel backfilling
+const MIN_BLOCKS_PER_RANGE = 100;
+// Maximum size of block ranges when splitting a larger block range into smaller block ranges when parallel backfilling
 const MAX_BLOCKS = 200;
 
 export default async function createBackfiller({
@@ -18,7 +20,7 @@ export default async function createBackfiller({
 
   const httpClient = await CometHttpClient.create(
     harness.httpUrl,
-    harness.retrier,
+    harness.retrier
   );
 
   async function start() {
@@ -37,7 +39,7 @@ export default async function createBackfiller({
         const sortNum = backfillOrder === BackfillOrder.ASCENDING ? 1 : -1;
 
         unprocessedBlockRanges.sort(
-          (a, b) => sortNum * (a.startBlockHeight - b.startBlockHeight),
+          (a, b) => sortNum * (a.startBlockHeight - b.startBlockHeight)
         );
 
         if (unprocessedBlockRanges.length > 0) {
@@ -76,7 +78,7 @@ export default async function createBackfiller({
           const evenUnprocessedBlockRanges = splitRangeEvenly({
             blockRange,
             numSplit: numThreads,
-            minBlocksPerRange: MIN_BLOCKS_PER_THREAD,
+            minBlocksPerRange: MIN_BLOCKS_PER_RANGE,
           });
 
           // TODO: Replace Promise.all with multithreading
@@ -89,19 +91,20 @@ export default async function createBackfiller({
                   httpClient,
                   maxBlockHeight: endBlockHeight,
                   minBlockHeight: startBlockHeight,
-                }),
-            ),
+                })
+            )
           );
         }
         break;
       case BackfillOrder.SPECIFIC:
-        const { blockHeightsToProcess } = backfillSetup;
+        const { blockHeightsToProcess, shouldPersist } = backfillSetup;
 
         for (const blockHeight of blockHeightsToProcess) {
           await backfillBlock({
             blockHeight,
             harness,
             httpClient,
+            shouldPersist,
           });
         }
         break;

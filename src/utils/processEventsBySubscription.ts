@@ -11,9 +11,11 @@ import type { Indexer } from "../modules/indexer";
 export default async function processEventsBySubscription({
   newBlockEvent,
   indexers,
+  shouldPersist = true,
 }: {
   newBlockEvent: NewBlockEvent & BlockData;
   indexers: Indexer[];
+  shouldPersist?: boolean;
 }) {
   // Process in strict order of indexers and their subscriptions
   for (const indexer of indexers) {
@@ -47,6 +49,8 @@ export default async function processEventsBySubscription({
           }
       }
     }
-    await indexer.persister.persistBlock(newBlockEvent.blockHeight);
+    if (shouldPersist) {
+      await indexer.persister.persistBlock(newBlockEvent.blockHeight);
+    }
   }
 }
