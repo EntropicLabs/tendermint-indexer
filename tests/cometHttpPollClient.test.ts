@@ -38,6 +38,8 @@ test("Successfully listen and destroy HTTP Poll Client", async () => {
   expect(gotEnd).toBe(true);
   expect(gotData).toBe(true);
 
+  console.log(blockData);
+
   for (let idx = 0; idx < blockData.length - 1; idx++) {
     expect(blockData[idx]).toBe(blockData[idx + 1] - 1);
   }

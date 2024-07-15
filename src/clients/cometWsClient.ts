@@ -25,7 +25,7 @@ export class CometWsClient extends Client {
   static async create(
     wsUrl: string,
     retrier: Retrier,
-    addEvent?: AddEventFunction,
+    addEvent?: AddEventFunction
   ) {
     return new CometWsClient(wsUrl, retrier, addEvent);
   }
@@ -35,11 +35,7 @@ export class CometWsClient extends Client {
    * @param retrier Retrier for reconnecting to websocket client on failure
    * @param addEvent Optional callback for recording new block or connection events
    */
-  constructor(
-    wsUrl: string,
-    retrier: Retrier,
-    addEvent?: AddEventFunction,
-  ) {
+  constructor(wsUrl: string, retrier: Retrier, addEvent?: AddEventFunction) {
     super(retrier, addEvent);
     this.wsUrl = wsUrl;
   }
@@ -99,7 +95,7 @@ export class CometWsClient extends Client {
 
       return parsedMessage;
     } catch (error) {
-      logger.error(`Error in ${this.wsUrl} parseMessage()`, error);
+      logger.error(`Error in ${this.wsUrl} parseMessage() ${error}`);
       return null;
     }
   }
@@ -134,31 +130,34 @@ export class CometWsClient extends Client {
 
       const onMessage = async (data: any) => {
         const event = this.parseMessage(data.toString());
-        if (event) {
-          if (!isWSEventResult(event.result)) {
-            // Got a response with no event data
+
+        if (event == null) {
+          return;
+        }
+
+        if (!isWSEventResult(event.result)) {
+          // Got a response with no event data
+          return;
+        }
+
+        if (event.result.data.type === "tendermint/event/NewBlock") {
+          const blockHeight = parseStringToInt(
+            getValue(event.result.data.value, ["block", "header", "height"])
+          );
+
+          if (blockHeight === null) {
+            logger.error("Block height is null in NewBlock");
             return;
           }
 
-          if (event.result.data.type === "tendermint/event/NewBlock") {
-            const blockHeight = parseStringToInt(
-              getValue(event.result.data.value, ["block", "header", "height"])
-            );
-
-            if (blockHeight === null) {
-              logger.error("Block height is null in NewBlock");
-              return;
-            }
-
-            this.currentHeight = blockHeight;
-            this.addEvent?.({
-              blockHeight,
-            });
-          } else {
-            throw new Error(
-              `Unanticipated result data type ${event.result.data.type}.'`
-            );
-          }
+          this.currentHeight = blockHeight;
+          this.addEvent?.({
+            blockHeight,
+          });
+        } else {
+          throw new Error(
+            `Unanticipated result data type ${event.result.data.type}.'`
+          );
         }
       };
 
