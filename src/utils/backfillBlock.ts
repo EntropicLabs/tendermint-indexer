@@ -2,6 +2,9 @@ import { CometHttpClient } from "../clients/cometHttpClient";
 import type { BackfillHarness } from "../types/Harness";
 import processEventsBySubscription from "./processEventsBySubscription";
 
+/**
+ * Gets block data by height and passes it to relevant indexers
+ */
 export async function backfillBlock({
   blockHeight,
   harness,

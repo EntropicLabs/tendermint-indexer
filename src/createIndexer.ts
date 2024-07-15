@@ -11,7 +11,9 @@ import logger, { setMinLogLevel } from "./modules/logger";
 import { CometHttpClient } from "./clients/cometHttpClient";
 import { sleep } from "./utils/sleep";
 
+// Delay between each time the indexer queue is processed 
 const PROCESS_QUEUE_EVERY_MS = 100;
+// Delay before the indexer and its subscriptions are destroyed
 const DESTROY_DELAY_MS = 3000;
 
 export default async function createIndexer({
