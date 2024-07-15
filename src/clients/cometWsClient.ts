@@ -1,6 +1,6 @@
 import "dotenv/config";
 import { WebSocket } from "ws";
-import type { ParseEventsFunction } from "../types/ParseEventsFunction";
+import type { AddEventFunction } from "../types/AddEventFunction";
 import type { Retrier } from "../modules/retry";
 import { Client } from "./client";
 import logger from "../modules/logger";
@@ -15,32 +15,40 @@ export class CometWsClient extends Client {
   private ws: WebSocket | null = null;
   private wsUrl: string;
 
+  /**
+   * Create a new CometWsClient
+   * @param wsUrl Websocket client URL
+   * @param retrier Retrier for reconnecting to websocket client on failure
+   * @param addEvent Optional callback for recording new block or connection events
+   * @returns CometWsClient
+   */
   static async create(
     wsUrl: string,
     retrier: Retrier,
-    parseEvents?: ParseEventsFunction
+    addEvent?: AddEventFunction
   ) {
-    return new CometWsClient(wsUrl, retrier, parseEvents);
+    return new CometWsClient(wsUrl, retrier, addEvent);
   }
 
-  constructor(
-    wsUrl: string,
-    retrier: Retrier,
-    parseEvents?: ParseEventsFunction
-  ) {
-    super(retrier, parseEvents);
+  /**
+   * @param wsUrl Websocket client URL
+   * @param retrier Retrier for reconnecting to websocket client on failure
+   * @param addEvent Optional callback for recording new block or connection events
+   */
+  constructor(wsUrl: string, retrier: Retrier, addEvent?: AddEventFunction) {
+    super(retrier, addEvent);
     this.wsUrl = wsUrl;
   }
 
+  /**
+   * Connect to WebSocket client and retry on error or disconnect
+   */
   protected async connect() {
     const connectionPromise = new Promise<void>((resolve, reject) => {
       this.ws = new WebSocket(this.wsUrl);
       const onOpen = () => {
         logger.info(`Connected to ${this.wsUrl}`);
-        this.ws?.off("open", onOpen);
-        this.ws?.off("error", onOpenError);
-        this.ws?.off("close", onDisconnect);
-
+        this.ws?.removeAllListeners();
         resolve();
       };
       const onOpenError = (error: any) => {
@@ -49,10 +57,9 @@ export class CometWsClient extends Client {
       };
 
       const onDisconnect = async (error: any) => {
-        this.ws?.off("open", onOpen);
-        this.ws?.off("error", onOpenError);
-        this.ws?.off("close", onDisconnect);
-        await this.destroyConnection();
+        this.ws?.removeAllListeners();
+        this.ws = null;
+        await super.disconnect();
         reject(new Error(`Disconnected from ${this.wsUrl}: ${error}`));
       };
 
@@ -65,6 +72,11 @@ export class CometWsClient extends Client {
     super.connect();
   }
 
+  /**
+   * Parses string data received from WebSocket connection into a Tendermint RPC Event
+   * @param data Raw string data
+   * @returns Tendermint RPC event
+   */
   private parseMessage(data: string): WSEvent | null {
     try {
       const parsedMessage = JSON.parse(data.toString());
@@ -79,11 +91,14 @@ export class CometWsClient extends Client {
 
       return parsedMessage;
     } catch (error) {
-      logger.error(`Error in ${this.wsUrl} parseMessage()`, error);
+      logger.error(`Error in ${this.wsUrl} parseMessage() ${error}`);
       return null;
     }
   }
 
+  /**
+   * Sends a new block subscription
+   */
   private sendNewBlockSubscription() {
     const subscriptionQuery = {
       jsonrpc: "2.0",
@@ -97,6 +112,9 @@ export class CometWsClient extends Client {
     this.ws?.send(JSON.stringify(subscriptionQuery));
   }
 
+  /**
+   * Start listening for new block events
+   */
   protected async doListen() {
     if (!this.ws) throw new Error("Websocket is not connected");
 
@@ -108,40 +126,46 @@ export class CometWsClient extends Client {
 
       const onMessage = async (data: any) => {
         const event = this.parseMessage(data.toString());
-        if (event) {
-          if (!isWSEventResult(event.result)) {
-            // Got a response with no event data
+
+        if (event == null) {
+          return;
+        }
+
+        if (!isWSEventResult(event.result)) {
+          // Got a response with no event data
+          return;
+        }
+
+        if (event.result.data.type === "tendermint/event/NewBlock") {
+          const blockHeight = parseStringToInt(
+            getValue(event.result.data.value, ["block", "header", "height"])
+          );
+
+          if (blockHeight === null) {
+            logger.error("Block height is null in NewBlock");
             return;
           }
 
-          if (event.result.data.type === "tendermint/event/NewBlock") {
-            const blockHeight = parseStringToInt(
-              getValue(event.result.data.value, ["block", "header", "height"])
-            );
-
-            if (blockHeight === null) {
-              logger.error("Block height is null in NewBlock");
-              return;
-            }
-
-            this.currentHeight = blockHeight;
-            this.parseEvents?.({
-              blockHeight,
-            });
-          } else {
-            throw new Error(
-              `Unanticipated result data type ${event.result.data.type}.'`
-            );
-          }
+          this.currentHeight = blockHeight;
+          this.addEvent?.({
+            blockHeight,
+          });
+        } else {
+          throw new Error(
+            `Unanticipated result data type ${event.result.data.type}.'`
+          );
         }
       };
 
-      const onDisconnect = async (error: any) => {
-        this.ws?.off("error", onError);
-        this.ws?.off("message", onMessage);
-        this.ws?.off("close", onDisconnect);
-        await this.destroyConnection();
-        reject(new Error(`Disconnected from ${this.wsUrl}: ${error}`));
+      const onDisconnect = async (code: number, reason: Buffer) => {
+        this.ws?.removeAllListeners();
+        this.ws = null;
+        await super.disconnect();
+
+        // Throw error if not a normal closure or going away
+        if (!(code === 1000 || code === 1001)) {
+          reject(new Error(`Disconnected from ${this.wsUrl}: ${reason}`));
+        }
       };
 
       this.ws?.on("error", onError);
@@ -154,12 +178,11 @@ export class CometWsClient extends Client {
     await listenPromise;
   }
 
-  private async destroyConnection() {
-    this.ws = null;
-    await super.disconnect();
-  }
-
+  /**
+   * Closes WebSocket connection
+   */
   protected async disconnect(): Promise<void> {
-    this.ws?.close();
+    // Disconnect with normal closure
+    this.ws?.close(1000);
   }
 }

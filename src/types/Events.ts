@@ -52,7 +52,7 @@ export type WSEventResult = {
 };
 
 export type WSEvent = {
-  id: string;
+  id: number;
   jsonrpc: string;
   result: WSEventResult | Record<string, never>;
 };
@@ -76,7 +76,7 @@ export function isWSEventResult(
 export function isWSEvent(data: any): data is WSEvent {
   if (typeof data !== "object" || data === null) return false;
   if (typeof data.jsonrpc !== "string") return false;
-  if (typeof data.id !== "string") return false;
+  if (typeof data.id !== "number") return false;
   if (!data.result || !isWSEventResult(data.result)) return false;
 
   const result = data.result;

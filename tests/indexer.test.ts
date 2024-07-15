@@ -14,7 +14,7 @@ import {
 import { sleep } from "../src/utils/sleep";
 import { TEST_HTTP_URL, TEST_WS_URL } from "./consts";
 
-async function testIndexer(endpointType: EndpointType) {
+async function testIndexer(endpointType: EndpointType, ms: number) {
   let firstBlockHeight = 0;
   let gotEvent = false;
   let gotEvent2 = false;
@@ -112,7 +112,7 @@ async function testIndexer(endpointType: EndpointType) {
 
   expect(indexer.isSubscriptionClientConnected()).toBe(true);
 
-  await sleep(5000);
+  await sleep(ms);
 
   // Destroy the indexer
   await indexer.destroy();
@@ -124,10 +124,10 @@ async function testIndexer(endpointType: EndpointType) {
   expect(gotHeightMatch).toBe(true);
 }
 
-test("Successful event, transaction, and block WebSocket indexer for 5 seconds", async () => {
-  await testIndexer("WEBSOCKET");
-}, 10000);
+test("Successful event, transaction, and block WebSocket indexer for 10 seconds", async () => {
+  await testIndexer("WEBSOCKET", 10000);
+}, 15000);
 
-test("Successful event, transaction, and block HTTP indexer for 5 seconds", async () => {
-  await testIndexer("HTTP_POLL");
-}, 10000);
+test("Successful event, transaction, and block HTTP indexer for 10 seconds", async () => {
+  await testIndexer("HTTP_POLL", 10000);
+}, 15000);

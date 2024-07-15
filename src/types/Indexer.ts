@@ -6,8 +6,7 @@ import type {
 import type { ValuesUnion } from "./ValuesUnion";
 
 /**
- * Data passed into an indexer, including the event type, event attributes,
- * and the block that the event came from
+ * Data passed into an Event indexer: event type, event attributes, and block height.
  */
 export type EventIndexer = {
   eventAttributes: Record<string, string>;
@@ -15,12 +14,18 @@ export type EventIndexer = {
   blockHeight: number;
 };
 
+/**
+ * Data passed into an Block indexer: block header, block results, and block height.
+ */
 export type BlockIndexer = {
   block: Block;
   blockResults: BlockResultsResponse;
   blockHeight: number;
 };
 
+/**
+ * Data passed into an Transaction (Tx) indexer: list of transactions and block height.
+ */
 export type TxIndexer = {
   tx: readonly TxData[];
   blockHeight: number;

@@ -11,6 +11,10 @@ const MIN_BLOCKS_PER_RANGE = 100;
 // Maximum size of block ranges when splitting a larger block range into smaller block ranges when parallel backfilling
 const MAX_BLOCKS = 200;
 
+/**
+ * Create an backfiller for indexing historical block data.
+ * Returns a start and destroy callback.
+ */
 export default async function createBackfiller({
   harness,
   backfillSetup,

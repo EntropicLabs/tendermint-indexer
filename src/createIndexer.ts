@@ -5,7 +5,7 @@ import {
 } from "./types/Events";
 import type { CreateIndexerFunction } from "./types/CreateIndexerFunction";
 import { createSubscriptionClient } from "./utils/createSubscriptionClient";
-import type { ParseEventsFunction } from "./types/ParseEventsFunction";
+import type { AddEventFunction } from "./types/AddEventFunction";
 import processEventsBySubscription from "./utils/processEventsBySubscription";
 import logger, { setMinLogLevel } from "./modules/logger";
 import { CometHttpClient } from "./clients/cometHttpClient";
@@ -16,6 +16,10 @@ const PROCESS_QUEUE_EVERY_MS = 100;
 // Delay before the indexer and its subscriptions are destroyed
 const DESTROY_DELAY_MS = 3000;
 
+/**
+ * Create an indexer for indexing live, new block data. 
+ * Returns a start, connection status, and destroy callback.
+ */
 export default async function createIndexer({
   harness,
   minLogLevel = "trace",
@@ -24,14 +28,14 @@ export default async function createIndexer({
   let prevBlockHeight = 0;
   const tmEventQueue: (NewBlockEvent | ConnectionEvent)[] = [];
 
-  const parseEvents: ParseEventsFunction = (event) => {
+  const addEvent: AddEventFunction = (event) => {
     // Instead of processing each event right away, we'll add the event to a queue
     tmEventQueue.push(event);
   };
 
   const subscriptionClient = await createSubscriptionClient({
     harness,
-    parseEvents,
+    addEvent,
   });
 
   const httpClient = await CometHttpClient.create(
