@@ -1,4 +1,4 @@
-import type { ParseEventsFunction } from "../types/ParseEventsFunction";
+import type { AddEventFunction } from "../types/AddEventFunction";
 import type { Retrier } from "../modules/retry";
 import { sleep } from "../utils/sleep";
 import { Client } from "./client";
@@ -20,10 +20,10 @@ export class CometHttpPollClient extends Client {
     endpoint: string,
     retrier: Retrier,
     pollIntervalMs: number,
-    parseEvents?: ParseEventsFunction,
+    addEvent?: AddEventFunction,
     startHeight?: number
   ) {
-    super(retrier, parseEvents, startHeight);
+    super(retrier, addEvent, startHeight);
     this.httpClient = httpClient;
     this.pollIntervalMs = pollIntervalMs;
     this.endpoint = endpoint;
@@ -32,7 +32,7 @@ export class CometHttpPollClient extends Client {
   static async create(
     endpoint: string,
     retrier: Retrier,
-    parseEvents?: ParseEventsFunction,
+    addEvent?: AddEventFunction,
     startHeight?: number,
     pollIntervalMs?: number
   ) {
@@ -42,7 +42,7 @@ export class CometHttpPollClient extends Client {
       endpoint,
       retrier,
       pollIntervalMs || HTTP_POLL_DELAY_MS,
-      parseEvents,
+      addEvent,
       startHeight
     );
   }
@@ -74,7 +74,7 @@ export class CometHttpPollClient extends Client {
   protected async doListen() {
     if (!this.currentHeight) throw new Error("Current height is not set");
     while (this.isConnected) {
-      this.parseEvents?.({
+      this.addEvent?.({
         blockHeight: this.currentHeight,
       });
       await sleep(this.pollIntervalMs);

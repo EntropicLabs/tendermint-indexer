@@ -1,6 +1,6 @@
 import "dotenv/config";
 import { WebSocket } from "ws";
-import type { ParseEventsFunction } from "../types/ParseEventsFunction";
+import type { AddEventFunction } from "../types/AddEventFunction";
 import type { Retrier } from "../modules/retry";
 import { Client } from "./client";
 import logger from "../modules/logger";
@@ -15,24 +15,32 @@ export class CometWsClient extends Client {
   private ws: WebSocket | null = null;
   private wsUrl: string;
 
+  /**
+   * Create a new CometWsClient
+   * @param wsUrl Websocket client URL
+   * @param retrier Retrier for reconnecting to websocket client on failure
+   * @param addEvent Optional callback for recording new block or connection events
+   * @param startHeight 
+   * @returns 
+   */
   static async create(
     wsUrl: string,
     retrier: Retrier,
-    parseEvents?: ParseEventsFunction,
+    addEvent?: AddEventFunction,
     startHeight?: number
   ) {
-    return new CometWsClient(wsUrl, retrier, parseEvents, startHeight);
+    return new CometWsClient(wsUrl, retrier, addEvent, startHeight);
   }
 
   constructor(
     wsUrl: string,
     retrier: Retrier,
-    parseEvents?: ParseEventsFunction,
+    addEvent?: AddEventFunction,
     startHeight?: number
   ) {
     if (startHeight)
       throw new Error("Websocket client does not support startHeight");
-    super(retrier, parseEvents);
+    super(retrier, addEvent);
     this.wsUrl = wsUrl;
   }
 
@@ -129,7 +137,7 @@ export class CometWsClient extends Client {
             }
 
             this.currentHeight = blockHeight;
-            this.parseEvents?.({
+            this.addEvent?.({
               blockHeight,
             });
           } else {

@@ -5,7 +5,7 @@ import {
 } from "./types/Events";
 import type { CreateIndexerFunction } from "./types/CreateIndexerFunction";
 import { createSubscriptionClient } from "./utils/createSubscriptionClient";
-import type { ParseEventsFunction } from "./types/ParseEventsFunction";
+import type { AddEventFunction } from "./types/AddEventFunction";
 import processEventsBySubscription from "./utils/processEventsBySubscription";
 import logger, { setMinLogLevel } from "./modules/logger";
 import { CometHttpClient } from "./clients/cometHttpClient";
@@ -24,14 +24,14 @@ export default async function createIndexer({
   let prevBlockHeight = 0;
   const tmEventQueue: (NewBlockEvent | ConnectionEvent)[] = [];
 
-  const parseEvents: ParseEventsFunction = (event) => {
+  const addEvent: AddEventFunction = (event) => {
     // Instead of processing each event right away, we'll add the event to a queue
     tmEventQueue.push(event);
   };
 
   const subscriptionClient = await createSubscriptionClient({
     harness,
-    parseEvents,
+    addEvent,
   });
 
   const httpClient = await CometHttpClient.create(

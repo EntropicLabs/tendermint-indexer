@@ -1,6 +1,6 @@
 import logger from "../modules/logger";
 import type { Retrier } from "../modules/retry";
-import type { ParseEventsFunction } from "../types/ParseEventsFunction";
+import type { AddEventFunction } from "../types/AddEventFunction";
 
 /**
  * Interface for a Network client that listens for new block events
@@ -9,8 +9,10 @@ export abstract class Client {
   protected isConnected: boolean = false;
   protected currentHeight: number | null = null;
   protected retrier: Retrier;
-  // Callback for new block or connect events
-  protected parseEvents: ParseEventsFunction | null = null;
+  /** 
+   * Callback for new block or connect events 
+  **/
+  protected addEvent: AddEventFunction | null = null;
 
   public get connected(): boolean {
     return this.isConnected;
@@ -22,22 +24,22 @@ export abstract class Client {
 
   protected constructor(
     retrier: Retrier,
-    parseEvents?: ParseEventsFunction,
+    addEvent?: AddEventFunction,
     startHeight?: number
   ) {
     this.retrier = retrier;
     this.currentHeight = startHeight ?? null;
-    this.parseEvents = parseEvents ?? null;
+    this.addEvent = addEvent ?? null;
   }
 
   protected async connect(): Promise<void> {
     this.isConnected = true;
-    this.parseEvents?.({ isStart: true });
+    this.addEvent?.({ isStart: true });
   }
 
   protected async disconnect(): Promise<void> {
     this.isConnected = false;
-    this.parseEvents?.({ isStart: false });
+    this.addEvent?.({ isStart: false });
   }
 
   public async destroy(): Promise<void> {

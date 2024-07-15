@@ -1,5 +1,5 @@
 import type { ConnectionEvent, NewBlockEvent } from "./Events";
 
-export type ParseEventsFunction = (
+export type AddEventFunction = (
   event: NewBlockEvent | ConnectionEvent,
 ) => void;
