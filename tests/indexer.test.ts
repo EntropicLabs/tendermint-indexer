@@ -17,6 +17,7 @@ import { TEST_HTTP_URL, TEST_WS_URL } from "./consts";
 async function testIndexer(endpointType: EndpointType) {
   let firstBlockHeight = 0;
   let gotEvent = false;
+  let gotEvent2 = false;
   let gotBlock = false;
   let gotTx = false;
   let gotHeightMatch = false;
@@ -44,6 +45,10 @@ async function testIndexer(endpointType: EndpointType) {
       gotEvent = true;
     }
 
+    private async eventIndexer2({}: EventIndexer) {
+      gotEvent2 = true;
+    }
+
     private async blockIndexer({ blockHeight }: BlockIndexer) {
       if (firstBlockHeight === 0) {
         firstBlockHeight = blockHeight;
@@ -66,6 +71,10 @@ async function testIndexer(endpointType: EndpointType) {
             },
           },
           indexer: this.eventIndexer.bind(this),
+          type: IndexerDataType.EVENT,
+        },
+        {
+          indexer: this.eventIndexer2.bind(this),
           type: IndexerDataType.EVENT,
         },
         {
@@ -111,6 +120,7 @@ async function testIndexer(endpointType: EndpointType) {
   expect(gotBlock).toBe(true);
   expect(gotTx).toBe(true);
   expect(gotEvent).toBe(true);
+  expect(gotEvent2).toBe(true);
   expect(gotHeightMatch).toBe(true);
 }
 
