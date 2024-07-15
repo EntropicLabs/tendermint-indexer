@@ -1,5 +1,9 @@
 import type { BlockRange } from "../types/BlockRange";
 
+/**
+ * Splits a given block range into smaller, contiguous block ranges
+ * of a given size
+ */
 function splitRangeBySize({
   blockRange,
   size,
@@ -35,6 +39,10 @@ function splitRangeBySize({
   return blockRanges;
 }
 
+/**
+ * Splits given block ranges into smaller, contiguous block ranges
+ * of a given size
+ */
 export function splitRangesBySize({
   blockRanges,
   size,
@@ -48,12 +56,16 @@ export function splitRangesBySize({
         splitRangeBySize({
           blockRange: currRange,
           size,
-        }),
+        })
       ),
-    [],
+    []
   );
 }
 
+/**
+ * Splits a block range into a specific number of contiguous block ranges
+ * with a minimum size
+ */
 export function splitRangeEvenly({
   minBlocksPerRange,
   numSplit,
@@ -93,6 +105,10 @@ export function splitRangeEvenly({
   return evenblockRanges;
 }
 
+/**
+ * Splits block ranges into a specific number of contiguous block ranges
+ * with a minimum size
+ */
 export function splitRangesEvenly({
   minBlocksPerRange,
   numSplit,
@@ -109,8 +125,8 @@ export function splitRangesEvenly({
           blockRange: currRange,
           numSplit,
           minBlocksPerRange,
-        }),
+        })
       ),
-    [],
+    []
   );
 }

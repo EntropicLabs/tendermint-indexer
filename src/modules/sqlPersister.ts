@@ -8,6 +8,10 @@ import { isNumber } from "../utils/isNumber";
 type DBJSON = { [key: string]: any };
 type SQLQueryFunction = (query: string) => Promise<DBJSON[]>;
 
+/**
+ * A persister than runs records block indexing with
+ * raw SQL queries ran on any SQL database
+ */
 export class SQLPersister implements Persister {
   private runQuery: SQLQueryFunction;
   private blockHeightTableName: string;

@@ -19,7 +19,7 @@ export class CometWsClient extends Client {
     wsUrl: string,
     retrier: Retrier,
     parseEvents?: ParseEventsFunction,
-    startHeight?: number,
+    startHeight?: number
   ) {
     return new CometWsClient(wsUrl, retrier, parseEvents, startHeight);
   }
@@ -28,7 +28,7 @@ export class CometWsClient extends Client {
     wsUrl: string,
     retrier: Retrier,
     parseEvents?: ParseEventsFunction,
-    startHeight?: number,
+    startHeight?: number
   ) {
     if (startHeight)
       throw new Error("Websocket client does not support startHeight");
@@ -86,11 +86,10 @@ export class CometWsClient extends Client {
   }
 
   private sendNewBlockSubscription() {
-    let queryId = 1;
     const subscriptionQuery = {
       jsonrpc: "2.0",
       method: "subscribe",
-      id: (queryId++).toString(),
+      id: 1,
       params: {
         query: "tm.event='NewBlock'",
       },
@@ -115,13 +114,13 @@ export class CometWsClient extends Client {
         const event = this.parseMessage(data.toString());
         if (event) {
           if (!isWSEventResult(event.result)) {
-            logger.warn("Unstake result response is empty");
+            // Got a response with no event data
             return;
           }
 
           if (event.result.data.type === "tendermint/event/NewBlock") {
             const blockHeight = parseStringToInt(
-              getValue(event.result.data.value, ["block", "header", "height"]),
+              getValue(event.result.data.value, ["block", "header", "height"])
             );
 
             if (blockHeight === null) {
@@ -135,7 +134,7 @@ export class CometWsClient extends Client {
             });
           } else {
             throw new Error(
-              `Unanticipated result data type ${event.result.data.type}.'`,
+              `Unanticipated result data type ${event.result.data.type}.'`
             );
           }
         }
