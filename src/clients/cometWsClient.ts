@@ -18,20 +18,16 @@ export class CometWsClient extends Client {
   static async create(
     wsUrl: string,
     retrier: Retrier,
-    parseEvents?: ParseEventsFunction,
-    startHeight?: number,
+    parseEvents?: ParseEventsFunction
   ) {
-    return new CometWsClient(wsUrl, retrier, parseEvents, startHeight);
+    return new CometWsClient(wsUrl, retrier, parseEvents);
   }
 
   constructor(
     wsUrl: string,
     retrier: Retrier,
-    parseEvents?: ParseEventsFunction,
-    startHeight?: number,
+    parseEvents?: ParseEventsFunction
   ) {
-    if (startHeight)
-      throw new Error("Websocket client does not support startHeight");
     super(retrier, parseEvents);
     this.wsUrl = wsUrl;
   }
@@ -43,16 +39,19 @@ export class CometWsClient extends Client {
         logger.info(`Connected to ${this.wsUrl}`);
         this.ws?.off("open", onOpen);
         this.ws?.off("error", onOpenError);
+        this.ws?.off("close", onDisconnect);
+
         resolve();
       };
       const onOpenError = (error: any) => {
-        this.ws?.off("open", onOpen);
-        this.ws?.off("error", onOpenError);
+        logger.error(`Error connecting to ${this.wsUrl}: ${error}`);
         this.ws?.close();
-        reject(new Error(`Error connecting to ${this.wsUrl}: ${error}`));
       };
 
       const onDisconnect = async (error: any) => {
+        this.ws?.off("open", onOpen);
+        this.ws?.off("error", onOpenError);
+        this.ws?.off("close", onDisconnect);
         await this.destroyConnection();
         reject(new Error(`Disconnected from ${this.wsUrl}: ${error}`));
       };
@@ -105,10 +104,7 @@ export class CometWsClient extends Client {
     const listenPromise = new Promise<void>((resolve, reject) => {
       const onError = (error: any) => {
         logger.error(`Error in ${this.wsUrl}:`, error);
-        this.ws?.off("error", onError);
-        this.ws?.off("message", onMessage);
-        this.ws?.close();
-        reject(error);
+        this.ws?.close(error);
       };
 
       const onMessage = async (data: any) => {
@@ -121,7 +117,7 @@ export class CometWsClient extends Client {
 
           if (event.result.data.type === "tendermint/event/NewBlock") {
             const blockHeight = parseStringToInt(
-              getValue(event.result.data.value, ["block", "header", "height"]),
+              getValue(event.result.data.value, ["block", "header", "height"])
             );
 
             if (blockHeight === null) {
@@ -135,13 +131,16 @@ export class CometWsClient extends Client {
             });
           } else {
             throw new Error(
-              `Unanticipated result data type ${event.result.data.type}.'`,
+              `Unanticipated result data type ${event.result.data.type}.'`
             );
           }
         }
       };
 
       const onDisconnect = async (error: any) => {
+        this.ws?.off("error", onError);
+        this.ws?.off("message", onMessage);
+        this.ws?.off("close", onDisconnect);
         await this.destroyConnection();
         reject(new Error(`Disconnected from ${this.wsUrl}: ${error}`));
       };
@@ -163,6 +162,5 @@ export class CometWsClient extends Client {
 
   protected async disconnect(): Promise<void> {
     this.ws?.close();
-    await this.destroyConnection();
   }
 }

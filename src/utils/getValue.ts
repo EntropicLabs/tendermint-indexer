@@ -11,10 +11,6 @@ export default function getValue(object: JSONObject, keys: string[]) {
       return null;
     }
 
-    if (!(key in currentObject)) {
-      return null;
-    }
-
     return currentObject[key as keyof typeof currentObject];
   }, object);
 }

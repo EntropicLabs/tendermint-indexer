@@ -65,7 +65,7 @@ export default async function backfillBlockRange({
     logger.error(`Error in backfill: ${error}`);
   } finally {
     const range = isAscending
-      ? `${minBlockHeight} to ${blockHeight + 1}`
+      ? `${minBlockHeight} to ${blockHeight - 1}`
       : `${blockHeight + 1} to ${maxBlockHeight}`;
 
     logger.info(`Finished backfilling unstake events from blocks ${range}`);

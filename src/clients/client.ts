@@ -16,13 +16,8 @@ export abstract class Client {
     return this.currentHeight;
   }
 
-  protected constructor(
-    retrier: Retrier,
-    parseEvents?: ParseEventsFunction,
-    startHeight?: number,
-  ) {
+  protected constructor(retrier: Retrier, parseEvents?: ParseEventsFunction) {
     this.retrier = retrier;
-    this.currentHeight = startHeight ?? null;
     this.parseEvents = parseEvents ?? null;
   }
 
@@ -46,11 +41,13 @@ export abstract class Client {
     return this.retrier.wrap(
       async (success, retry) => {
         if (!this.isConnected) {
-          await this.connect().catch(async (error) => {
-            await retry(error);
-          }).then(() => {
-            success();
-          })
+          await this.connect()
+            .catch(async (error) => {
+              await retry(error);
+            })
+            .then(() => {
+              success();
+            });
         }
 
         this.doListen().catch(async (error) => {
@@ -64,7 +61,7 @@ export abstract class Client {
         onFailedLastAttempt: () => {
           logger.fatal("Max client retries exceeded, aborting...");
         },
-      },
+      }
     );
   }
 }

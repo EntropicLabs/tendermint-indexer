@@ -1,4 +1,4 @@
-export function mapAndFilterNull<S, T>(
+export default function mapAndFilterNull<S, T>(
     list: S[],
     func: (data: S, idx: number) => T | null,
   ): T[] {

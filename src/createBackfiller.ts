@@ -60,12 +60,12 @@ export default async function createBackfiller({
         break;
       case BackfillOrder.PARALLEL:
         // Process blocks not seen by the backfiller
-        unprocessedBlockRanges =
+        const unprocessedParallelBlockRanges =
           await harness.indexer.persister.getUnprocessedBlockRanges();
 
         // Split ranges into smaller, more manegeable chunks to reduce fragementation
         const smallerBlockRanges = splitRangesBySize({
-          blockRanges: unprocessedBlockRanges,
+          blockRanges: unprocessedParallelBlockRanges,
           size: MAX_BLOCKS,
         });
 
