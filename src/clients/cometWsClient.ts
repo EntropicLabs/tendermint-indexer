@@ -27,19 +27,15 @@ export class CometWsClient extends Client {
     wsUrl: string,
     retrier: Retrier,
     addEvent?: AddEventFunction,
-    startHeight?: number
   ) {
-    return new CometWsClient(wsUrl, retrier, addEvent, startHeight);
+    return new CometWsClient(wsUrl, retrier, addEvent);
   }
 
   constructor(
     wsUrl: string,
     retrier: Retrier,
     addEvent?: AddEventFunction,
-    startHeight?: number
   ) {
-    if (startHeight)
-      throw new Error("Websocket client does not support startHeight");
     super(retrier, addEvent);
     this.wsUrl = wsUrl;
   }
@@ -51,16 +47,19 @@ export class CometWsClient extends Client {
         logger.info(`Connected to ${this.wsUrl}`);
         this.ws?.off("open", onOpen);
         this.ws?.off("error", onOpenError);
+        this.ws?.off("close", onDisconnect);
+
         resolve();
       };
       const onOpenError = (error: any) => {
-        this.ws?.off("open", onOpen);
-        this.ws?.off("error", onOpenError);
+        logger.error(`Error connecting to ${this.wsUrl}: ${error}`);
         this.ws?.close();
-        reject(new Error(`Error connecting to ${this.wsUrl}: ${error}`));
       };
 
       const onDisconnect = async (error: any) => {
+        this.ws?.off("open", onOpen);
+        this.ws?.off("error", onOpenError);
+        this.ws?.off("close", onDisconnect);
         await this.destroyConnection();
         reject(new Error(`Disconnected from ${this.wsUrl}: ${error}`));
       };
@@ -112,10 +111,7 @@ export class CometWsClient extends Client {
     const listenPromise = new Promise<void>((resolve, reject) => {
       const onError = (error: any) => {
         logger.error(`Error in ${this.wsUrl}:`, error);
-        this.ws?.off("error", onError);
-        this.ws?.off("message", onMessage);
-        this.ws?.close();
-        reject(error);
+        this.ws?.close(error);
       };
 
       const onMessage = async (data: any) => {
@@ -149,6 +145,9 @@ export class CometWsClient extends Client {
       };
 
       const onDisconnect = async (error: any) => {
+        this.ws?.off("error", onError);
+        this.ws?.off("message", onMessage);
+        this.ws?.off("close", onDisconnect);
         await this.destroyConnection();
         reject(new Error(`Disconnected from ${this.wsUrl}: ${error}`));
       };
@@ -170,6 +169,5 @@ export class CometWsClient extends Client {
 
   protected async disconnect(): Promise<void> {
     this.ws?.close();
-    await this.destroyConnection();
   }
 }

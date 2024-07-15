@@ -24,12 +24,12 @@ export abstract class Client {
 
   protected constructor(
     retrier: Retrier,
-    addEvent?: AddEventFunction,
-    startHeight?: number
+    parseEvents?: ParseEventsFunction,
+    startHeight?: number,
   ) {
     this.retrier = retrier;
     this.currentHeight = startHeight ?? null;
-    this.addEvent = addEvent ?? null;
+    this.parseEvents = parseEvents ?? null;
   }
 
   protected async connect(): Promise<void> {

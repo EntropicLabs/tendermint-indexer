@@ -121,7 +121,7 @@ There is a backfiller available to index old blocks. To set this up, follow the 
 
 ```typescript
 // backfill.ts
-import { createBackfiller, createExpBackoffRetrier, BackfillOrder } from "tendermint-indexer";
+import { createBackfiller, BackfillOrder } from "tendermint-indexer";
 
 const singleIndexer = new BasicIndexer();
 

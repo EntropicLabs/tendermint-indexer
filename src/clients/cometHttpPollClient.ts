@@ -21,9 +21,8 @@ export class CometHttpPollClient extends Client {
     retrier: Retrier,
     pollIntervalMs: number,
     addEvent?: AddEventFunction,
-    startHeight?: number
   ) {
-    super(retrier, addEvent, startHeight);
+    super(retrier, addEvent);
     this.httpClient = httpClient;
     this.pollIntervalMs = pollIntervalMs;
     this.endpoint = endpoint;
@@ -33,7 +32,6 @@ export class CometHttpPollClient extends Client {
     endpoint: string,
     retrier: Retrier,
     addEvent?: AddEventFunction,
-    startHeight?: number,
     pollIntervalMs?: number
   ) {
     const httpClient = await CometHttpClient.create(endpoint, retrier);
@@ -43,7 +41,6 @@ export class CometHttpPollClient extends Client {
       retrier,
       pollIntervalMs || HTTP_POLL_DELAY_MS,
       addEvent,
-      startHeight
     );
   }
 
