@@ -42,16 +42,9 @@ export abstract class Client {
   /**
    * Disconnect from the network client
    */
-  protected async disconnect(): Promise<void> {
+  public async disconnect(): Promise<void> {
     this.isConnected = false;
     this.addEvent?.({ isStart: false });
-  }
-
-  /**
-   * Destroy the network client
-   */
-  public async destroy(): Promise<void> {
-    await this.disconnect();
   }
 
   /**
@@ -66,17 +59,20 @@ export abstract class Client {
     return this.retrier.wrap(
       async (success, retry) => {
         if (!this.isConnected) {
-          await this.connect()
-            .catch(async (error) => {
-              await retry(error);
-            })
-            .then(() => {
-              success();
-            });
+          const didFail = await this.connect().catch(async (error) => {
+            await retry(error);
+            return true;
+          });
+
+          if (didFail) {
+            return;
+          }
+
+          await success();
         }
 
         this.doListen().catch(async (error) => {
-          await retry(error);
+          return await retry(error);
         });
       },
       {

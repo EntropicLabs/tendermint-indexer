@@ -82,13 +82,13 @@ export class CometHttpPollClient extends Client {
 
     logger.info(`Connected to ${this.endpoint}`);
 
-    super.connect();
+    await super.connect();
   }
 
   /**
    * Closes HTTP Polling connection
    */
-  protected async disconnect(): Promise<void> {
+   public async disconnect(): Promise<void> {
     await super.disconnect();
   }
 
