@@ -88,7 +88,7 @@ export default async function createIndexer({
 
   async function destroy(delay = DESTROY_DELAY_MS) {
     // Prevent new blocks from being pushed to the event queue
-    await subscriptionClient.destroy();
+    await subscriptionClient.disconnect();
 
     // Give some time for the queue to finish up
     await sleep(delay);

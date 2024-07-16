@@ -37,7 +37,7 @@ test("Successfully listen and destroy HTTP Poll Client with proper block height 
     await sleep(1000);
   }
 
-  await httpPollClient.destroy();
+  await httpPollClient.disconnect();
 
   /**
    * Make sure that connection events and new block events were receieved
@@ -88,12 +88,12 @@ test("Successfully listen, disconnect, and re-listen HTTP client with proper blo
   while (blockData.length < 2) {
     await sleep(1000);
   }
-  await httpPollClient.destroy();
+  await httpPollClient.disconnect();
   await httpPollClient.listen();
   while (blockData.length < 4) {
     await sleep(1000);
   }
-  await httpPollClient.destroy();
+  await httpPollClient.disconnect();
 
   /**
    * Make sure that connection events and new block events were receieved

@@ -60,7 +60,9 @@ export class CometWsClient extends Client {
         this.ws?.removeAllListeners();
         this.ws = null;
         await super.disconnect();
-        reject(new Error(`Disconnected from ${this.wsUrl}: ${error}`));
+        reject(
+          new Error(`Disconnected from ${this.wsUrl} on connect: ${error}`)
+        );
       };
 
       this.ws.on("open", onOpen);
@@ -69,7 +71,7 @@ export class CometWsClient extends Client {
     });
 
     await connectionPromise;
-    super.connect();
+    await super.connect();
   }
 
   /**
@@ -79,7 +81,7 @@ export class CometWsClient extends Client {
    */
   private parseMessage(data: string): WSEvent | null {
     try {
-      const parsedMessage = JSON.parse(data.toString());
+      const parsedMessage = JSON.parse(data);
 
       if (parsedMessage == null) {
         throw new Error("Websocket data is null");
@@ -118,7 +120,7 @@ export class CometWsClient extends Client {
   protected async doListen() {
     if (!this.ws) throw new Error("Websocket is not connected");
 
-    const listenPromise = new Promise<void>((resolve, reject) => {
+    const listenPromise = new Promise<void>((_, reject) => {
       const onError = (error: any) => {
         logger.error(`Error in ${this.wsUrl}:`, error);
         this.ws?.close(error);
@@ -164,7 +166,9 @@ export class CometWsClient extends Client {
 
         // Throw error if not a normal closure or going away
         if (!(code === 1000 || code === 1001)) {
-          reject(new Error(`Disconnected from ${this.wsUrl}: ${reason}`));
+          reject(
+            new Error(`Disconnected from ${this.wsUrl} on listen: ${reason}`)
+          );
         }
       };
 
@@ -181,8 +185,7 @@ export class CometWsClient extends Client {
   /**
    * Closes WebSocket connection
    */
-  protected async disconnect(): Promise<void> {
-    // Disconnect with normal closure
-    this.ws?.close(1000);
+  public async disconnect(code = 1000): Promise<void> {
+    this.ws?.close(code);
   }
 }
