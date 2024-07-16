@@ -8,7 +8,7 @@ import { CometHttpClient } from "./cometHttpClient";
 /**
  * Default HTTP polling delay in milliseconds
  */
-const HTTP_POLL_DELAY_MS = 3000;
+const HTTP_POLL_DELAY_MS = 2000;
 
 /**
  * Sets up a CometBFT HTTP poll connection to query block information

@@ -194,6 +194,7 @@ test("Succeed in specific backfill", async () => {
   const blockHeights = await testBackfiller({
     backfillOrder: "SPECIFIC",
     blockHeightsToProcess: [12000001, 12000009, 12000003],
+    shouldPersist: true,
   });
   expect(blockHeights).toEqual([
     {

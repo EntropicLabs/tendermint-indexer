@@ -5,28 +5,7 @@ import { checkErrorThrow } from "./utils";
 import { isConnectionEvent } from "../src/types/Events";
 import { sleep } from "../src/utils/sleep";
 
-test("Fail to listen with improper WebSocket URL", async () => {
-  const retrier = createRetrier(
-    {
-      maxRetries: 1,
-    },
-    () => 500
-  );
-
-  expect(
-    await checkErrorThrow(async () => {
-      const wsPollClient = await CometWsClient.create(
-        TEST_BAD_WS_URL,
-        retrier,
-        () => {}
-      );
-
-      await wsPollClient.listen();
-    })
-  ).toBe(true);
-});
-
-test("Successfully listen and destroy WebSocket Client", async () => {
+test("Successfully listen and destroy WS Client with proper block height ordering", async () => {
   const retrier = createRetrier(
     {
       maxRetries: 1,
@@ -50,8 +29,15 @@ test("Successfully listen and destroy WebSocket Client", async () => {
   });
   await wsClient.listen();
   expect(wsClient.connected).toBe(true);
-  await sleep(4000);
+  while (blockData.length < 3) {
+    await sleep(1000);
+  }
   await wsClient.destroy();
+
+  /**
+   * Make sure that connection events and new block events were receieved
+   * and all block events were ordered by ascending heights
+   **/
   expect(gotStart).toBe(true);
   expect(gotEnd).toBe(true);
   expect(gotData).toBe(true);
@@ -59,9 +45,9 @@ test("Successfully listen and destroy WebSocket Client", async () => {
   for (let idx = 0; idx < blockData.length - 1; idx++) {
     expect(blockData[idx]).toBe(blockData[idx + 1] - 1);
   }
-}, 10000);
+}, 30000);
 
-test("Successfully listen, disconnect, and re-listen WebSocket client", async () => {
+test("Successfully listen, disconnect, and re-listen WS client with proper block height ordering", async () => {
   const retrier = createRetrier(
     {
       maxRetries: 3,
@@ -89,18 +75,46 @@ test("Successfully listen, disconnect, and re-listen WebSocket client", async ()
   });
   await wsClient.listen();
   expect(wsClient.connected).toBe(true);
-  await sleep(4000);
+  while (blockData.length < 3) {
+    await sleep(1000);
+  }
   await wsClient.destroy();
-  await sleep(5000);
   await wsClient.listen();
-  await sleep(4000);
+  while (blockData.length < 6) {
+    await sleep(1000);
+  }
   await wsClient.destroy();
   expect(gotStart).toBe(true);
   expect(gotEnd).toBe(true);
   expect(gotData).toBe(true);
   expect(gotDataSecond).toBe(true);
 
+  /**
+   * Make sure that connection events and new block events were receieved
+   * and all block events were ordered by ascending heights
+   **/
   for (let idx = 0; idx < blockData.length - 1; idx++) {
     expect(blockData[idx]).toBeLessThan(blockData[idx + 1]);
   }
-}, 20000);
+}, 30000);
+
+test("Fail to listen with improper WebSocket URL", async () => {
+  const retrier = createRetrier(
+    {
+      maxRetries: 1,
+    },
+    () => 500
+  );
+
+  expect(
+    await checkErrorThrow(async () => {
+      const wsPollClient = await CometWsClient.create(
+        TEST_BAD_WS_URL,
+        retrier,
+        () => {}
+      );
+
+      await wsPollClient.listen();
+    })
+  ).toBe(true);
+});

@@ -124,10 +124,10 @@ async function testIndexer(endpointType: EndpointType, ms: number) {
   expect(gotHeightMatch).toBe(true);
 }
 
-test("Successful event, transaction, and block WebSocket indexer for 10 seconds", async () => {
-  await testIndexer("WEBSOCKET", 10000);
-}, 15000);
+test("Successful event, transaction, and block WebSocket indexer", async () => {
+  await testIndexer("WEBSOCKET", 20000);
+}, 30000);
 
-test("Successful event, transaction, and block HTTP indexer for 10 seconds", async () => {
-  await testIndexer("HTTP_POLL", 10000);
-}, 15000);
+test("Successful event, transaction, and block HTTP indexer", async () => {
+  await testIndexer("HTTP_POLL", 20000);
+}, 30000);
