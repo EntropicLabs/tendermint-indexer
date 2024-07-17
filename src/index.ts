@@ -9,6 +9,7 @@ import {
   createErrorRetrier,
   type ErrorRetrier,
   type Retrier,
+  createRetrier,
 } from "./modules/retry";
 import type { Subscription } from "./types/Subscription";
 import {
@@ -30,6 +31,7 @@ export {
   createErrorRetrier,
   createExpBackoffRetrier,
   createIndexer,
+  createRetrier,
   EndpointType,
   Indexer,
   IndexerDataType,
