@@ -9,6 +9,13 @@ type DBJSON = { [key: string]: any };
 type SQLQueryFunction = (query: string) => Promise<DBJSON[]>;
 
 /**
+ * Defines a buffer of blocks that may be in the processes of being indexed
+ * by a real-time indexer and should be avoided by the historical backfiller
+ * to prevent double indexing.
+ */
+const DEFAULT_LATEST_BLOCK_BUFFER = 3;
+
+/**
  * A persister than runs records block indexing with
  * raw SQL queries ran on any SQL database
  */
@@ -18,15 +25,18 @@ export class SQLPersister implements Persister {
   private httpClient: CometHttpClient;
   private startBlockHeight = 0;
   private prevBlockHeight = 0;
+  private latestBlockBuffer: number;
 
   constructor(
     runQuery: SQLQueryFunction,
     blockHeightTableName: string,
-    httpClient: CometHttpClient
+    httpClient: CometHttpClient,
+    latestBlockBuffer = DEFAULT_LATEST_BLOCK_BUFFER
   ) {
     this.runQuery = runQuery;
     this.blockHeightTableName = blockHeightTableName;
     this.httpClient = httpClient;
+    this.latestBlockBuffer = latestBlockBuffer;
   }
 
   /**
@@ -150,72 +160,63 @@ export class SQLPersister implements Persister {
   public async getUnprocessedBlockRanges(): Promise<BlockRange[]> {
     // Merge block ranges beforehand to reduce size of block height table
     await this.mergeBlockRanges();
-
     const blockRanges = await this.getProcessedBlockRanges();
-
     const { earliestBlockHeight, latestBlockHeight } =
       await this.httpClient.getBlockHeights();
-    let minBlock = earliestBlockHeight;
-
+    let minBlockHeight = earliestBlockHeight;
+    let maxBlockHeight = latestBlockHeight - this.latestBlockBuffer;
     // Remove all block ranges that are outside the earliest and latest block height saved by the HTTP RPC node
     const boundedBlockRanges = mapAndFilterNull(
       blockRanges,
       ({ startBlockHeight, endBlockHeight }) => {
         if (
-          endBlockHeight < earliestBlockHeight ||
-          startBlockHeight > latestBlockHeight
+          endBlockHeight < minBlockHeight ||
+          startBlockHeight > maxBlockHeight
         ) {
           return null;
         }
-
         return {
-          startBlockHeight: Math.max(earliestBlockHeight, startBlockHeight),
-          endBlockHeight: Math.min(latestBlockHeight, endBlockHeight),
+          startBlockHeight: Math.max(minBlockHeight, startBlockHeight),
+          endBlockHeight: Math.min(maxBlockHeight, endBlockHeight),
         };
       }
     );
-
     const unprocessedBlockRanges: BlockRange[] = [];
-
-    // Guaranteed that all earliestBlockHeight <= startBlockHeight, endBlockHeight <= latestBlockHeight
     for (const { startBlockHeight, endBlockHeight } of boundedBlockRanges) {
       if (
         !(
-          earliestBlockHeight <= startBlockHeight &&
-          startBlockHeight <= latestBlockHeight &&
-          earliestBlockHeight <= endBlockHeight &&
-          endBlockHeight <= latestBlockHeight
+          minBlockHeight <= startBlockHeight &&
+          startBlockHeight <= maxBlockHeight &&
+          minBlockHeight <= endBlockHeight &&
+          endBlockHeight <= maxBlockHeight
         )
       ) {
         throw new Error(
-          `Block ranges ${startBlockHeight}, ${endBlockHeight} outside of range ${earliestBlockHeight}, ${latestBlockHeight}`
+          `Block ranges ${startBlockHeight}, ${endBlockHeight} outside of range ${maxBlockHeight}, ${maxBlockHeight}`
         );
       }
-
-      if (startBlockHeight < minBlock) {
+      if (startBlockHeight < minBlockHeight) {
         throw new Error(
-          `Overlap detected in block ranges ${startBlockHeight}, ${endBlockHeight} with block ${minBlock}`
+          `Overlap detected in block ranges ${startBlockHeight}, ${endBlockHeight} with block ${minBlockHeight}`
         );
       }
-
       // Current and previous block range are contigous
-      if (startBlockHeight == minBlock) {
-        minBlock = endBlockHeight + 1;
+      if (startBlockHeight == minBlockHeight) {
+        minBlockHeight = endBlockHeight + 1;
         continue;
       }
-
       unprocessedBlockRanges.push({
-        startBlockHeight: minBlock,
+        startBlockHeight: minBlockHeight,
         endBlockHeight: startBlockHeight - 1,
       });
-
-      minBlock = endBlockHeight + 1;
+      minBlockHeight = endBlockHeight + 1;
     }
-
-    unprocessedBlockRanges.sort(
-      (a, b) => a.startBlockHeight - b.startBlockHeight
-    );
-
+    if (minBlockHeight <= maxBlockHeight) {
+      unprocessedBlockRanges.push({
+        startBlockHeight: minBlockHeight,
+        endBlockHeight: maxBlockHeight,
+      });
+    }
     return unprocessedBlockRanges;
   }
 
