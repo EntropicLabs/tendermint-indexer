@@ -5,6 +5,7 @@ import backfillBlockRange from "./utils/backfillBlockRange";
 import { splitRangeEvenly, splitRangesBySize } from "./utils/splitRange";
 import { backfillBlock } from "./utils/backfillBlock";
 import logger, { setMinLogLevel } from "./modules/logger";
+import { DEFAULT_RETRIER } from './modules/retry';
 
 // Minimum number of blocks that be processed by a single process when parallel backfilling
 const MIN_BLOCKS_PER_RANGE = 100;
@@ -24,7 +25,7 @@ export default async function createBackfiller({
 
   const httpClient = await CometHttpClient.create(
     harness.httpUrl,
-    harness.retrier
+    harness.retrier || DEFAULT_RETRIER
   );
 
   async function start() {

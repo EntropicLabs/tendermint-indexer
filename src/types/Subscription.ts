@@ -10,7 +10,9 @@ import type {
  */
 export type EventFilter = {
   eventType: {
+    // Return true if there is at least an event type in matches that is an exact match
     matches?: string[];
+    // Return true if there is at least one event type in contains that appears as a substring  
     contains?: string[];
   };
 };
@@ -35,6 +37,7 @@ export type TxSubscription = {
  * Subscription for an event
  */
 export type EventSubscription = {
+  // If filter is not specified, all events are indexed.
   filter?: EventFilter;
   indexer: (arg: EventIndexer) => void;
   type: typeof IndexerDataType.EVENT;

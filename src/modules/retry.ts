@@ -169,3 +169,10 @@ export const createExpBackoffRetrier = (
     )
   );
 };
+
+export const DEFAULT_RETRIER = createExpBackoffRetrier({
+  initialInterval: 1000,
+  expFactor: 2,
+  maxInterval: 60000,
+  jitter: 1000,
+});

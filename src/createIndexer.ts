@@ -10,6 +10,7 @@ import processEventsBySubscription from "./utils/processEventsBySubscription";
 import logger, { setMinLogLevel } from "./modules/logger";
 import { CometHttpClient } from "./clients/cometHttpClient";
 import { sleep } from "./utils/sleep";
+import { DEFAULT_RETRIER } from "./modules/retry";
 
 // Delay between each time the indexer queue is processed 
 const PROCESS_QUEUE_EVERY_MS = 100;
@@ -40,7 +41,7 @@ export default async function createIndexer({
 
   const httpClient = await CometHttpClient.create(
     harness.httpUrl,
-    harness.retrier,
+    harness.retrier || DEFAULT_RETRIER,
   );
 
   async function processTmEventQueue() {

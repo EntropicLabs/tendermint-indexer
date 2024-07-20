@@ -8,7 +8,8 @@ import type { EndpointType } from "./EndpointType";
  */
 export type IndexerHarness = {
   indexers: Indexer[];
-  retrier: Retrier;
+  // Retries any failed network calls and connection attempts
+  retrier?: Retrier;
 } & (
   | {
       type: typeof EndpointType.WEBSOCKET;
@@ -27,6 +28,7 @@ export type IndexerHarness = {
  */
 export type BackfillHarness = {
   indexer: Indexer;
-  retrier: Retrier;
+    // Retries any failed network calls and connection attempts
+  retrier?: Retrier;
   httpUrl: `http://${string}` | `https://${string}`;
 };
