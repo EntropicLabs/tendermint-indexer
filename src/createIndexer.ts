@@ -3,7 +3,7 @@ import {
   isConnectionEvent,
   type NewBlockEvent,
 } from "./types/Events";
-import type { CreateIndexerFunction } from "./types/CreateIndexerFunction";
+import type { CreateIndexerParams } from "./types/CreateIndexerParams";
 import { createSubscriptionClient } from "./utils/createSubscriptionClient";
 import type { AddEventFunction } from "./types/AddEventFunction";
 import processEventsBySubscription from "./utils/processEventsBySubscription";
@@ -24,7 +24,7 @@ const DESTROY_DELAY_MS = 3000;
 export default async function createIndexer({
   harness,
   minLogLevel = "trace",
-}: CreateIndexerFunction) {
+}: CreateIndexerParams) {
   setMinLogLevel(minLogLevel);
   let prevBlockHeight = 0;
   const tmEventQueue: (NewBlockEvent | ConnectionEvent)[] = [];

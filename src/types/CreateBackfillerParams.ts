@@ -5,7 +5,7 @@ import type { LevelWithSilentOrString } from "pino";
 /**
  * Parameters required to setup a backfiller that feeds into a PostgreSQL database.
  */
-export type CreateBackfillerFunction = {
+export type CreateBackfillerParams = {
   backfillSetup:
     | {
         // Backfill unprocessed blocks in ascending or descending order of block height
@@ -14,9 +14,10 @@ export type CreateBackfillerFunction = {
           | typeof BackfillOrder.ASCENDING;
       }
     | {
-        // Backfill unprocessed blocks  in any order of block height in a parallel manner
-        backfillOrder: typeof BackfillOrder.PARALLEL;
-        numThreads: number;
+        // Backfill unprocessed blocks in any order of block height in a concurrent manner
+        backfillOrder: typeof BackfillOrder.CONCURRENT;
+        // Number of concurrent processes that are backfilling
+        numProcesses: number;
       }
     | {
         // Backfill specified blocks in order of position in blockHeightsToProcess
@@ -31,4 +32,4 @@ export type CreateBackfillerFunction = {
   minLogLevel?: LevelWithSilentOrString;
 };
 
-export type BackfillSetup = CreateBackfillerFunction["backfillSetup"];
+export type BackfillSetup = CreateBackfillerParams["backfillSetup"];

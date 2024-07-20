@@ -1,15 +1,15 @@
 import { CometHttpClient } from "./clients";
 import { BackfillOrder } from "./types/BackfillOrder";
-import type { CreateBackfillerFunction } from "./types/CreateBackfillerFunction";
+import type { CreateBackfillerParams } from "./types/CreateBackfillerParams";
 import backfillBlockRange from "./utils/backfillBlockRange";
 import { splitRangeEvenly, splitRangesBySize } from "./utils/splitRange";
 import { backfillBlock } from "./utils/backfillBlock";
 import logger, { setMinLogLevel } from "./modules/logger";
 import { DEFAULT_RETRIER } from './modules/retry';
 
-// Minimum number of blocks that be processed by a single process when parallel backfilling
+// Minimum number of blocks that be processed by a single process when concurrently backfilling
 const MIN_BLOCKS_PER_RANGE = 100;
-// Maximum size of block ranges when splitting a larger block range into smaller block ranges when parallel backfilling
+// Maximum size of block ranges when splitting a larger block range into smaller block ranges when concurrently backfilling
 const MAX_BLOCKS = 200;
 
 /**
@@ -20,7 +20,7 @@ export default async function createBackfiller({
   harness,
   backfillSetup,
   minLogLevel = "trace",
-}: CreateBackfillerFunction) {
+}: CreateBackfillerParams) {
   setMinLogLevel(minLogLevel);
 
   const httpClient = await CometHttpClient.create(
@@ -66,24 +66,24 @@ export default async function createBackfiller({
           });
         }
         break;
-      case BackfillOrder.PARALLEL:
+      case BackfillOrder.CONCURRENT:
         // Process blocks not seen by the backfiller
-        const unprocessedParallelBlockRanges =
+        const unprocessedConcurrentBlockRanges =
           await harness.indexer.persister.getUnprocessedBlockRanges();
 
         // Split ranges into smaller, more manegeable chunks to reduce fragementation
         const smallerBlockRanges = splitRangesBySize({
-          blockRanges: unprocessedParallelBlockRanges,
+          blockRanges: unprocessedConcurrentBlockRanges,
           size: MAX_BLOCKS,
         });
 
-        const { numThreads } = backfillSetup;
+        const { numProcesses } = backfillSetup;
 
         for (const blockRange of smallerBlockRanges) {
           // Split block into even chunks for each thread
           const evenUnprocessedBlockRanges = splitRangeEvenly({
             blockRange,
-            numSplit: numThreads,
+            numSplit: numProcesses,
             minBlocksPerRange: MIN_BLOCKS_PER_RANGE,
           });
 
