@@ -50,7 +50,7 @@ export default async function processEventsBySubscription({
       }
     }
     if (shouldPersist) {
-      await indexer.persister.persistBlock(newBlockEvent.blockHeight);
+      await indexer.persister?.persistBlock(newBlockEvent.blockHeight);
     }
   }
 }

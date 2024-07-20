@@ -148,7 +148,7 @@ The backfiller will process blocks in descending order from largest block height
 1. Gets notified of new blocks through the `WebSocket` or `HTTP Polling` connection.
 2. Adds blocks in increasing order of block height to a queue.
 3. Processes each block from the queue and passes subscribed block, transaction, or event data to each `Indexer`.
-4. After all block data for a specific height is passed to an `Indexer`, inform the `Indexer`'s `Persister`, which is a single source of truth on which blocks have been indexed.
+4. After all block data for a specific height is passed to an `Indexer`, inform the `Indexer`'s `Persister` (if it exists), which is a single source of truth on which blocks have been indexed.
 5. In case of network failure or errors, employ the `Retrier` to retry indexing.
 
 This guarantees that `tendermint-indexer` achieves **exactly-once semantics**, can **recover** from network failure, and delivers block data in **increasing order** of block height.

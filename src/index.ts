@@ -18,7 +18,7 @@ import {
   type TxIndexer,
   type EventIndexer,
 } from "./types/Indexer";
-import { Indexer } from "./modules/indexer";
+import { Indexer, PersistantIndexer } from './modules/indexer';
 import { Persister } from "./modules/persister";
 import type { BlockRange } from "./types/BlockRange";
 import type { IndexerHarness, BackfillHarness } from "./types/Harness";
@@ -34,6 +34,7 @@ export {
   createRetrier,
   EndpointType,
   Indexer,
+  PersistantIndexer,
   IndexerDataType,
   Persister,
   SQLPersister,

@@ -37,6 +37,7 @@ export default async function createBackfiller({
     switch (backfillOrder) {
       case BackfillOrder.ASCENDING:
       case BackfillOrder.DESCENDING:
+
         // Process blocks not seen by the backfiller
         let unprocessedBlockRanges =
           await harness.indexer.persister.getUnprocessedBlockRanges();

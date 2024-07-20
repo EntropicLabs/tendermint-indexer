@@ -1,4 +1,4 @@
-import type { Indexer } from "../modules/indexer";
+import type { Indexer, PersistantIndexer } from "../modules/indexer";
 import type { Retrier } from "../modules/retry";
 import type { EndpointType } from "./EndpointType";
 
@@ -8,7 +8,10 @@ import type { EndpointType } from "./EndpointType";
  */
 export type IndexerHarness = {
   indexers: Indexer[];
-  // Retries any failed network calls and connection attempts
+  /** Retries any failed network calls and connection attempts. 
+   * If null, an exponential backoff retrier that switches to linear backoff at a 60 seconds
+   * threshold will be used.
+  */
   retrier?: Retrier;
 } & (
   | {
@@ -27,8 +30,14 @@ export type IndexerHarness = {
  * No WebSocket or HTTP polling connection necessary.
  */
 export type BackfillHarness = {
-  indexer: Indexer;
-    // Retries any failed network calls and connection attempts
+  /** Only a single indexer is allowed per backfill since different indexers may have different
+   * ranges of unprocessed blocks.
+   */
+  indexer: PersistantIndexer;
+  /** Retries any failed network calls and connection attempts. 
+   * If null, an exponential backoff retrier that switches to linear backoff at a 60 seconds
+   * threshold will be used.
+  */
   retrier?: Retrier;
   httpUrl: `http://${string}` | `https://${string}`;
 };
