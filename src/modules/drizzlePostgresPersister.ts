@@ -56,8 +56,8 @@ export class DrizzlePostgresPersister implements Persister {
     retrier: Retrier,
     httpClient: CometHttpClient,
     migrationsFolderPath: string,
+    blockHeightTableName: string,
     blockBuffer = DEFAULT_LATEST_BLOCK_BUFFER,
-    blockHeightTableName: string
   ) {
     this.httpClient = httpClient;
     this.retrier = retrier;
