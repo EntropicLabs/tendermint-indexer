@@ -28,6 +28,7 @@ import type { BlockRange } from "./types/BlockRange";
 import type { IndexerHarness, BackfillHarness } from "./types/Harness";
 import { SQLPersister } from "./modules/sqlPersister";
 import { CreateIndexerParams } from "./types/CreateIndexerParams";
+import { DrizzlePostgresPersister } from "./modules/drizzlePostgresPersister";
 
 export {
   BackfillOrder,
@@ -38,6 +39,7 @@ export {
   createIndexer,
   createRetrier,
   DEFAULT_RETRIER,
+  DrizzlePostgresPersister,
   EndpointType,
   Indexer,
   IndexerDataType,

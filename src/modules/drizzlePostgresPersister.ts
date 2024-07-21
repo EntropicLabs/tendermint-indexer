@@ -21,7 +21,7 @@ const DEFAULT_LATEST_BLOCK_BUFFER = 20;
 /**
  * A Drizzle PostgreSQL persister that stores inclusive ranges of indexed blocks' heights.
  */
-export class PostgresPersister implements Persister {
+export class DrizzlePostgresPersister implements Persister {
   /**
    * HTTP client used to get RPC info
    */
