@@ -353,7 +353,7 @@ function blockHeightAtTime(date: Date): Promise<number> {
   return data.height;
 }
 
-const httpUrl = "https://test-rpc-kujira.mintthemoon.xyz";
+const httpUrl = "https://kujira-rpc.nodes.defiantlabs.net/";
 const httpClient = await CometHttpClient.create(httpUrl, DEFAULT_RETRIER);
 const { latestBlockHeight } = await httpClient.getBlockHeights();
 
@@ -398,7 +398,7 @@ const specificBlockBackfill: CreateBackfillerParams = {
 // Index every 10,000 blocks
 import { CreateBackfillerParams, CometHttpClient } from "tendermint-indexer";
 
-const httpUrl = "https://test-rpc-kujira.mintthemoon.xyz";
+const httpUrl = "https://kujira-rpc.nodes.defiantlabs.net/";
 const httpClient = await CometHttpClient.create(httpUrl, DEFAULT_RETRIER);
 const { earliestBlockHeight, latestBlockHeight } =
   await httpClient.getBlockHeights();
