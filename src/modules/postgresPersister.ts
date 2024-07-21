@@ -2,16 +2,14 @@ import { drizzle, type NodePgDatabase } from "drizzle-orm/node-postgres";
 import { eq, inArray } from "drizzle-orm";
 import { migrate } from "drizzle-orm/node-postgres/migrator";
 import { Client } from "pg";
-import {
-  integer,
-  pgTable,
-  serial,
-} from "drizzle-orm/pg-core";
+import { integer, pgTable, serial } from "drizzle-orm/pg-core";
 import { CometHttpClient } from "../clients";
-import { BlockRange } from "../types/BlockRange";
+import { BlockRange, PGBlockRange } from "../types/BlockRange";
 import logger from "./logger";
 import { Persister } from "./persister";
 import { Retrier } from "./retry";
+import getMissingRanges from "../utils/getMissingRanges";
+import mergeRanges from "../utils/mergeRanges";
 
 /**
  * Defines a buffer of blocks that may be in the processes of being indexed
@@ -169,54 +167,7 @@ export class PostgresPersister implements Persister {
       await this.httpClient.getBlockHeights();
     let minBlockHeight = earliestBlockHeight;
     const maxBlockHeight = latestBlockHeight - this.blockBuffer;
-    // Remove all block ranges that are outside the earliest and latest block height saved by the HTTP RPC node
-    const boundedBlockRanges = blockRanges
-      .map(({ startBlockHeight, endBlockHeight }) => {
-        if (
-          endBlockHeight < minBlockHeight ||
-          startBlockHeight > maxBlockHeight
-        ) {
-          return null;
-        }
-        return {
-          startBlockHeight: Math.max(minBlockHeight, startBlockHeight),
-          endBlockHeight: Math.min(maxBlockHeight, endBlockHeight),
-        };
-      })
-      .filter((range) => range != null);
-
-    const unprocessedBlockRanges: BlockRange[] = [];
-    for (const { startBlockHeight, endBlockHeight } of boundedBlockRanges) {
-      if (
-        !(
-          minBlockHeight <= startBlockHeight &&
-          startBlockHeight <= maxBlockHeight &&
-          minBlockHeight <= endBlockHeight &&
-          endBlockHeight <= maxBlockHeight
-        )
-      ) {
-        throw new Error(
-          `Block ranges ${startBlockHeight}, ${endBlockHeight} outside of range ${minBlockHeight}, ${maxBlockHeight}`
-        );
-      }
-      // Current and previous block range are contigous
-      if (startBlockHeight == minBlockHeight) {
-        minBlockHeight = endBlockHeight + 1;
-        continue;
-      }
-      unprocessedBlockRanges.push({
-        startBlockHeight: minBlockHeight,
-        endBlockHeight: startBlockHeight - 1,
-      });
-      minBlockHeight = endBlockHeight + 1;
-    }
-    if (minBlockHeight <= maxBlockHeight) {
-      unprocessedBlockRanges.push({
-        startBlockHeight: minBlockHeight,
-        endBlockHeight: maxBlockHeight,
-      });
-    }
-    return unprocessedBlockRanges;
+    return getMissingRanges(minBlockHeight, maxBlockHeight, blockRanges);
   }
 
   /**
@@ -256,67 +207,27 @@ export class PostgresPersister implements Persister {
    *
    * @returns A list of all block ranges, post-merge
    */
-  private async mergeBlockRanges(): Promise<(BlockRange & { id: number })[]> {
+  private async mergeBlockRanges(): Promise<PGBlockRange[]> {
     const allRanges = await this.getProcessedBlockRanges();
-    if (allRanges.length === 0) return [];
+    const { rangesToDelete, rangesToUpdate } = mergeRanges(allRanges);
 
-    type MergedRange = BlockRange & { ids: number[] };
-    const mergedRanges: MergedRange[] = [];
-    let currentRange: MergedRange = { ...allRanges[0], ids: [allRanges[0].id] };
-    for (let i = 1; i < allRanges.length; i++) {
-      const nextRange = allRanges[i];
-      // The ranges overlap if the end of the current range is >= to the start of the next range
-      if (currentRange.endBlockHeight + 1 >= nextRange.startBlockHeight) {
-        // Merge the ranges
-        currentRange.endBlockHeight = Math.max(
-          currentRange.endBlockHeight,
-          nextRange.endBlockHeight
-        );
-        currentRange.ids.push(nextRange.id);
-      } else {
-        // No change, push the current range.
-        mergedRanges.push(currentRange);
-        currentRange = { ...nextRange, ids: [nextRange.id] };
-      }
-    }
-    mergedRanges.push(currentRange);
-
-    // Flatten all the ranges
-    const rangesToDelete = mergedRanges
-      .map((range) => {
-        let [_, ...rest] = range.ids;
-        return rest;
-      })
-      .flat();
-    const ranges = await this.db.transaction(async (tx) => {
+    await this.db.transaction(async (tx) => {
       if (rangesToDelete.length > 0) {
         await tx
           .delete(this.blockHeightSchema)
           .where(inArray(this.blockHeightSchema.id, rangesToDelete));
       }
 
-      const updates = mergedRanges.map((range) => {
-        const { ids, ...rest } = range;
-        return {
-          id: ids[0],
-          ...rest,
-        };
-      });
-
-      let ranges: (BlockRange & { id: number })[] = [];
-      for (const update of updates) {
-        const range = await tx
+      for (const update of rangesToUpdate) {
+        await tx
           .update(this.blockHeightSchema)
           .set(update)
           .where(eq(this.blockHeightSchema.id, update.id))
           .returning();
-        ranges = ranges.concat(range);
       }
-
-      return ranges;
     });
-    ranges.sort((a, b) => a.startBlockHeight - b.startBlockHeight);
 
-    return ranges;
+    rangesToUpdate.sort((a, b) => a.startBlockHeight - b.startBlockHeight);
+    return rangesToUpdate;
   }
 }
