@@ -13,7 +13,7 @@ type SQLQueryFunction = (query: string) => Promise<DBJSON[]>;
  * by a real-time indexer and should be avoided by the historical backfiller
  * to prevent double indexing.
  */
-const DEFAULT_LATEST_BLOCK_BUFFER = 3;
+const DEFAULT_LATEST_BLOCK_BUFFER = 20;
 
 /**
  * A persister than runs records block indexing with
