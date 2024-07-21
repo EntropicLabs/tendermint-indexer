@@ -1,5 +1,5 @@
 import { TEST_ARCHIVE_HTTP_URL } from "./consts";
-import { BackfillSetup } from "../dist/src/types/CreateBackfillerFunction";
+import { BackfillSetup } from "../src";
 import { SQLPersister } from "../src/modules/sqlPersister";
 import {
   createBackfiller,
@@ -177,10 +177,10 @@ test("Succeed in descending backfill", async () => {
   ]);
 }, 15000);
 
-test("Succeed in parallel backfill", async () => {
+test("Succeed in concurrent backfill", async () => {
   const blockHeights = await testBackfiller({
-    backfillOrder: "PARALLEL",
-    numThreads: 3,
+    backfillOrder: "CONCURRENT",
+    numProcesses: 3,
   });
   expect(blockHeights).toEqual([
     {

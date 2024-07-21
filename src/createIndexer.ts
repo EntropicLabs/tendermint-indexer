@@ -3,13 +3,14 @@ import {
   isConnectionEvent,
   type NewBlockEvent,
 } from "./types/Events";
-import type { CreateIndexerFunction } from "./types/CreateIndexerFunction";
+import type { CreateIndexerParams } from "./types/CreateIndexerParams";
 import { createSubscriptionClient } from "./utils/createSubscriptionClient";
 import type { AddEventFunction } from "./types/AddEventFunction";
 import processEventsBySubscription from "./utils/processEventsBySubscription";
 import logger, { setMinLogLevel } from "./modules/logger";
 import { CometHttpClient } from "./clients/cometHttpClient";
 import { sleep } from "./utils/sleep";
+import { DEFAULT_RETRIER } from "./modules/retry";
 
 // Delay between each time the indexer queue is processed 
 const PROCESS_QUEUE_EVERY_MS = 100;
@@ -23,7 +24,7 @@ const DESTROY_DELAY_MS = 3000;
 export default async function createIndexer({
   harness,
   minLogLevel = "trace",
-}: CreateIndexerFunction) {
+}: CreateIndexerParams) {
   setMinLogLevel(minLogLevel);
   let prevBlockHeight = 0;
   const tmEventQueue: (NewBlockEvent | ConnectionEvent)[] = [];
@@ -40,7 +41,7 @@ export default async function createIndexer({
 
   const httpClient = await CometHttpClient.create(
     harness.httpUrl,
-    harness.retrier,
+    harness.retrier || DEFAULT_RETRIER,
   );
 
   async function processTmEventQueue() {
