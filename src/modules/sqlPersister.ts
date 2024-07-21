@@ -192,7 +192,7 @@ export class SQLPersister implements Persister {
         )
       ) {
         throw new Error(
-          `Block ranges ${startBlockHeight}, ${endBlockHeight} outside of range ${maxBlockHeight}, ${maxBlockHeight}`
+          `Block ranges ${startBlockHeight}, ${endBlockHeight} outside of range ${minBlockHeight}, ${maxBlockHeight}`
         );
       }
       if (startBlockHeight < minBlockHeight) {
