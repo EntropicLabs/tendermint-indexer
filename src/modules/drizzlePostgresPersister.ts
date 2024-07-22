@@ -12,13 +12,6 @@ import mergeRanges from "../utils/mergeRanges";
 import { integer, pgTable, serial } from "drizzle-orm/pg-core";
 
 /**
- * Defines a buffer of blocks that may be in the processes of being indexed
- * by a real-time indexer and should be avoided by the historical backfiller
- * to prevent double indexing.
- */
-const DEFAULT_LATEST_BLOCK_BUFFER = 20;
-
-/**
  * A Drizzle PostgreSQL persister that stores inclusive ranges of indexed blocks' heights.
  */
 export class DrizzlePostgresPersister implements Persister {
@@ -42,10 +35,6 @@ export class DrizzlePostgresPersister implements Persister {
   private isDbConnected = false;
   private db: NodePgDatabase;
   /**
-   * Number of blocks before the latest block height to ignore when backfilling
-   */
-  private blockBuffer: number;
-  /**
    * Drizzle schema for the table storing processed block height records
    */
   private blockHeightSchema;
@@ -55,14 +44,12 @@ export class DrizzlePostgresPersister implements Persister {
    * @param retrier  Triggers a reconnect on database disconnects
    * @param httpClient  HTTP client used to get RPC info
    * @param blockHeightTableName Table name defined in Drizzle schema
-   * @param blockBuffer  Number of blocks before the latest block height to ignore when backfilling
    */
   constructor(
     connectionUrl: string,
     retrier: Retrier,
     httpClient: CometHttpClient,
-    blockHeightTableName: string,
-    blockBuffer = DEFAULT_LATEST_BLOCK_BUFFER,
+    blockHeightTableName: string
   ) {
     this.httpClient = httpClient;
     this.retrier = retrier;
@@ -71,12 +58,11 @@ export class DrizzlePostgresPersister implements Persister {
       connectionString: connectionUrl,
     });
     this.db = drizzle(this.client);
-    this.blockBuffer = blockBuffer;
     this.blockHeightSchema = pgTable(blockHeightTableName, {
       id: serial("id").primaryKey(),
       startBlockHeight: integer("startBlockHeight").notNull(),
       endBlockHeight: integer("endBlockHeight").notNull(),
-    });;
+    });
   }
 
   public isConnected() {
@@ -154,15 +140,28 @@ export class DrizzlePostgresPersister implements Persister {
   }
 
   /**
-   * Gets all the previously unprocessed block ranges
+   * Gets all the previously unprocessed block ranges for historical backfilling
    * @returns A list of all unprocessed block ranges, sorted by startBlockHeight ascending
    */
   public async getUnprocessedBlockRanges(): Promise<BlockRange[]> {
     const blockRanges = await this.getProcessedBlockRanges();
-    const { earliestBlockHeight, latestBlockHeight } =
-      await this.httpClient.getBlockHeights();
-    let minBlockHeight = earliestBlockHeight;
-    const maxBlockHeight = latestBlockHeight - this.blockBuffer;
+
+    /// Only backfill if there exists at least one processed block
+    if (blockRanges.length === 0) {
+      return [];
+    }
+
+    const { earliestBlockHeight } = await this.httpClient.getBlockHeights();
+
+    const minBlockHeight = earliestBlockHeight;
+    /** 
+     * Set the max block height to the latest processed block height as opposed to the
+     * latest block height saved by the RPC node. This prevents the backfiller
+     * from indexing the same block as the indexer in case the indexer
+     * has a network delay.
+     */
+    const maxBlockHeight = blockRanges[blockRanges.length - 1].endBlockHeight;
+
     return getMissingRanges(minBlockHeight, maxBlockHeight, blockRanges);
   }
 
