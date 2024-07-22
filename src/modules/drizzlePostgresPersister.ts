@@ -33,14 +33,14 @@ export class DrizzlePostgresPersister implements Persister {
   /**
    * Reference to pg database connection
    */
-  private client: Client;
+  public client: Client;
   private connectionUrl: string;
   /**
    * If set to true, attempt a reconnect on database disconnect
    */
   private shouldAttemptReconnect = true;
   private isDbConnected = false;
-  public db: NodePgDatabase;
+  private db: NodePgDatabase;
   private migrationsFolderPath: string;
   /**
    * Number of blocks before the latest block height to ignore when backfilling
@@ -113,7 +113,7 @@ export class DrizzlePostgresPersister implements Persister {
         this.isDbConnected = true;
         this.db = drizzle(this.client);
 
-        logger.info("Connection to database");
+        logger.info("Connected to database");
 
         this.client.on("error", async (err) => {
           logger.warn("Database error", err);
