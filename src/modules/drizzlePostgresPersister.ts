@@ -146,7 +146,7 @@ export class DrizzlePostgresPersister implements Persister {
   public async getUnprocessedBlockRanges(): Promise<BlockRange[]> {
     const blockRanges = await this.getProcessedBlockRanges();
 
-    /// Only backfill if there exists at least one processed block
+    // Only backfill if there exists at least one processed block
     if (blockRanges.length === 0) {
       return [];
     }
