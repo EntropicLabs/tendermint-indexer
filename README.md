@@ -236,9 +236,9 @@ import {
   serial,
 } from "drizzle-orm/pg-core";
 
-export const
+export const blockHeightTableName = "myBlockHeightTable";
 
-export const blockHeight = pgTable("blockHeight", {
+export const blockHeight = pgTable(blockHeightTableName, {
   id: serial("id").primaryKey(),
   startBlockHeight: integer("startBlockHeight").notNull(),
   endBlockHeight: integer("endBlockHeight").notNull(),
@@ -256,11 +256,13 @@ bun drizzle-kit generate
 After, setup the persister and run the Drizzle migration:
 
 ```typescript
+// index.ts
 import {
   SQLPersister,
   DEFAULT_RETRIER,
   CometHttpClient,
 } from "@entropic-labs/tendermint-indexer";
+import { blockHeightTableName } from ".db/schema"
 
 const httpClient = await CometHttpClient.create(
   nodeHttpUrl,
@@ -272,7 +274,7 @@ const persister = new DrizzlePostgresPersister(
   "postgres://postgres:@localhost:5432/unstake",
   DEFAULT_RETRIER,
   httpClient,
-  "blockHeight",
+  blockHeightTableName,
 );
 
 // Connect to the persister
