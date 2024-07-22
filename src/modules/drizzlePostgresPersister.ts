@@ -2,7 +2,6 @@ import { drizzle, type NodePgDatabase } from "drizzle-orm/node-postgres";
 import { eq, inArray } from "drizzle-orm";
 import { migrate } from "drizzle-orm/node-postgres/migrator";
 import { Client } from "pg";
-import { integer, pgTable, serial } from "drizzle-orm/pg-core";
 import { CometHttpClient } from "../clients";
 import { BlockRange, PGBlockRange } from "../types/BlockRange";
 import logger from "./logger";
@@ -10,6 +9,7 @@ import { Persister } from "./persister";
 import { Retrier } from "./retry";
 import getMissingRanges from "../utils/getMissingRanges";
 import mergeRanges from "../utils/mergeRanges";
+import { integer, pgTable, serial } from "drizzle-orm/pg-core";
 
 /**
  * Defines a buffer of blocks that may be in the processes of being indexed
@@ -41,7 +41,6 @@ export class DrizzlePostgresPersister implements Persister {
   private shouldAttemptReconnect = true;
   private isDbConnected = false;
   private db: NodePgDatabase;
-  private migrationsFolderPath: string;
   /**
    * Number of blocks before the latest block height to ignore when backfilling
    */
@@ -51,11 +50,17 @@ export class DrizzlePostgresPersister implements Persister {
    */
   private blockHeightSchema;
 
+  /**
+   * @param connectionUrl PostgreSQL connection URL for database
+   * @param retrier  Triggers a reconnect on database disconnects
+   * @param httpClient  HTTP client used to get RPC info
+   * @param blockHeightTableName Table name defined in Drizzle schema
+   * @param blockBuffer  Number of blocks before the latest block height to ignore when backfilling
+   */
   constructor(
     connectionUrl: string,
     retrier: Retrier,
     httpClient: CometHttpClient,
-    migrationsFolderPath: string,
     blockHeightTableName: string,
     blockBuffer = DEFAULT_LATEST_BLOCK_BUFFER,
   ) {
@@ -66,25 +71,16 @@ export class DrizzlePostgresPersister implements Persister {
       connectionString: connectionUrl,
     });
     this.db = drizzle(this.client);
-    this.migrationsFolderPath = migrationsFolderPath;
     this.blockBuffer = blockBuffer;
     this.blockHeightSchema = pgTable(blockHeightTableName, {
       id: serial("id").primaryKey(),
       startBlockHeight: integer("startBlockHeight").notNull(),
       endBlockHeight: integer("endBlockHeight").notNull(),
-    });
+    });;
   }
 
   public isConnected() {
     return this.isDbConnected;
-  }
-
-  /**
-   * Initializes the database
-   */
-  async init(): Promise<void> {
-    await this.connect();
-    await migrate(this.db, { migrationsFolder: this.migrationsFolderPath });
   }
 
   /**
