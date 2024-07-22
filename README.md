@@ -21,7 +21,7 @@ import {
   EndpointType,
   IndexerDataType,
   type EventIndexer,
-} from "tendermint-indexer";
+} from "@entropic-labs/tendermint-indexer";
 
 class BasicIndexer implements Indexer {
   private async indexer({
@@ -79,7 +79,7 @@ There is a backfiller available to index old blocks. To set this up, follow the 
 
 ```typescript
 // backfill.ts
-import { createBackfiller, BackfillOrder } from "tendermint-indexer";
+import { createBackfiller, BackfillOrder } from "@entropic-labs/tendermint-indexer";
 
 const singleIndexer = new BasicIndexer();
 
@@ -104,7 +104,7 @@ The backfiller will process blocks in descending order from largest block height
 A retrier wraps around network calls and connections and retries them on failure. It can also be triggered manually through code. By default, an exponential backoff retrier is used for indexing and backfilling. To specify a custom retrier:
 
 ```typescript
-import { createRetrier, createExpBackoffRetrier } from "tendermint-indexer";
+import { createRetrier, createExpBackoffRetrier } from "@entropic-labs/tendermint-indexer";
 
 // Basic retrier that retries 3 times, each with a 500 ms delay
 const retrier = createRetrier(
@@ -148,7 +148,7 @@ const backfillerWithCustomRetrier = await createBackfiller({
 An error retrier can also be created, whcih automatically retries when an error is thrown.
 
 ```typescript
-import { createErrorRetrier } from "tendermint-indexer";
+import { createErrorRetrier } from "@entropic-labs/tendermint-indexer";
 
 const errorRetrier = createErrorRetrier(retrier);
 ```
@@ -160,7 +160,7 @@ A persister is a single source of truth on which blocks have been indexed. Real-
 To setup an indexer with a persister:
 
 ```typescript
-import { PersistantIndexer, Persister } from "tendermint-indexer";
+import { PersistantIndexer, Persister } from "@entropic-labs/tendermint-indexer";
 
 class BasicPersister implements Persister {
   public async getUnprocessedBlockRanges(): Promise<BlockRange[]> {
@@ -200,6 +200,96 @@ class BasicIndexer implements PersistantIndexer {
 }
 ```
 
+## How does the Indexer work?
+
+`tendermint-indexer` takes as input a `WebSocket` or `HTTP Polling` connection type, a list of `Indexers`, and a `Retrier`. Then, performs the following steps:
+
+1. Gets notified of new blocks through the `WebSocket` or `HTTP Polling` connection.
+2. Adds blocks in increasing order of block height to a queue.
+3. Processes each block from the queue and passes subscribed block, transaction, or event data to each `Indexer`.
+4. After all block data for a specific height is passed to an `Indexer`, inform the `Indexer`'s `Persister` (if it exists), which is a single source of truth on which blocks have been indexed.
+5. In case of network failure or errors, employ the `Retrier` to retry indexing.
+
+This guarantees that `tendermint-indexer` achieves **exactly-once semantics**, can **recover** from network failure, and delivers block data in **increasing order** of block height.
+
+The backfiller works in a similar way, but relies on an `Indexer`'s `Persister` to index and record the unprocessed blocks.
+
+## Provided Persisters
+
+### Drizzle PostgreSQL persister
+
+A PostgreSQL persister is available and requires Drizzle migration setup.The persister stores inclusive ranges of processed blocks' heights.
+
+To setup, first install drizzle:
+
+```bash
+bun add drizzle-orm drizzle-kit 
+```
+
+Next, create a `db` folder. Create an empty `migrations` folder and a `schema.ts` file inside the folder.
+
+```typescript
+// db/schema.ts
+import {
+  integer,
+  pgTable,
+  serial,
+} from "drizzle-orm/pg-core";
+
+export const blockHeightTableName = "myBlockHeightTable";
+
+export const blockHeight = pgTable(blockHeightTableName, {
+  id: serial("id").primaryKey(),
+  startBlockHeight: integer("startBlockHeight").notNull(),
+  endBlockHeight: integer("endBlockHeight").notNull(),
+});
+
+// Add other schemas below
+```
+
+Then, run:
+
+```bash
+bun drizzle-kit generate
+```
+
+After, setup the persister and run the Drizzle migration:
+
+```typescript
+// index.ts
+import {
+  SQLPersister,
+  DEFAULT_RETRIER,
+  CometHttpClient,
+} from "@entropic-labs/tendermint-indexer";
+import { blockHeightTableName } from ".db/schema"
+
+const httpClient = await CometHttpClient.create(
+  nodeHttpUrl,
+  DEFAULT_RETRIER,
+);
+
+const persister = new DrizzlePostgresPersister(
+  // Replace with your PostgreSQL connection url
+  "postgres://postgres:@localhost:5432/unstake",
+  DEFAULT_RETRIER,
+  httpClient,
+  blockHeightTableName,
+);
+
+// Connect to the persister
+await persister.connect();
+
+// Automatically run a data migration
+await migrate(drizzle(persister.client), {
+  // Change path based on where the db folder exists
+  migrationsFolder: "./db/migrations"
+});
+
+// Continue with using the persister in an indexer...
+```
+### Raw SQL persister
+
 A SQL persister is available and requires a function that runs raw SQL queries in a SQL database (PostgreSQL, MySQL, etc.). The SQL persister creates a table for storing inclusive ranges of processed blocks' heights.
 
 ```typescript
@@ -207,7 +297,7 @@ import {
   SQLPersister,
   DEFAULT_RETRIER,
   CometHttpClient,
-} from "tendermint-indexer";
+} from "@entropic-labs/tendermint-indexer";
 
 const httpClient = await CometHttpClient.create(
   "https://test-rpc-kujira.mintthemoon.xyz",
@@ -224,22 +314,9 @@ const sqlPersister = new SQLPersister(
 );
 // Create the SQL table if it already doesn't exist
 await persister.setup();
+
+// Continue with using the persister in an indexer...
 ```
-
-## How does the Indexer work?
-
-`tendermint-indexer` takes as input a `WebSocket` or `HTTP Polling` connection type, a list of `Indexers`, and a `Retrier`. Then, performs the following steps:
-
-1. Gets notified of new blocks through the `WebSocket` or `HTTP Polling` connection.
-2. Adds blocks in increasing order of block height to a queue.
-3. Processes each block from the queue and passes subscribed block, transaction, or event data to each `Indexer`.
-4. After all block data for a specific height is passed to an `Indexer`, inform the `Indexer`'s `Persister` (if it exists), which is a single source of truth on which blocks have been indexed.
-5. In case of network failure or errors, employ the `Retrier` to retry indexing.
-
-This guarantees that `tendermint-indexer` achieves **exactly-once semantics**, can **recover** from network failure, and delivers block data in **increasing order** of block height.
-
-The backfiller works in a similar way, but relies on an `Indexer`'s `Persister` to index and record the unprocessed blocks.
-
 ## More Indexer Examples
 
 Below are some more examples on more complex indexers.
@@ -252,7 +329,7 @@ import {
   type EventIndexer,
   type TxIndexer,
   type BlockIndexer,
-} from "tendermint-indexer";
+} from "@entropic-labs/tendermint-indexer";
 
 class ComplexIndexer implements Indexer {
   private async eventIndexer({
@@ -317,7 +394,7 @@ Below are some more examples on more complex backfillers.
 ### Backfill unprocessed blocks in a concurrent order
 
 ```typescript
-import { CreateBackfillerParams } from "tendermint-indexer";
+import { CreateBackfillerParams } from "@entropic-labs/tendermint-indexer";
 
 const concurrentBackfill: CreateBackfillerParams = {
   harness: {
@@ -335,7 +412,7 @@ const concurrentBackfill: CreateBackfillerParams = {
 ### Ascending backfill to specific block or timestamp
 
 ```typescript
-import { CreateBackfillerParams, CometHttpClient } from "tendermint-indexer";
+import { CreateBackfillerParams, CometHttpClient } from "@entropic-labs/tendermint-indexer";
 
 function range(start: number, end: number, step = 1) {
   return Array(Math.floor((end - start) / step) + 1)
@@ -396,7 +473,7 @@ const specificBlockBackfill: CreateBackfillerParams = {
 
 ```typescript
 // Index every 10,000 blocks
-import { CreateBackfillerParams, CometHttpClient } from "tendermint-indexer";
+import { CreateBackfillerParams, CometHttpClient } from "@entropic-labs/tendermint-indexer";
 
 const httpUrl = "https://kujira-rpc.nodes.defiantlabs.net/";
 const httpClient = await CometHttpClient.create(httpUrl, DEFAULT_RETRIER);
