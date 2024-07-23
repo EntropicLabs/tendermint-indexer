@@ -25,8 +25,7 @@
   "scripts": {
     "build": "rm -rf dist && tsc && tsc-alias",
     "tag": "npm version patch && git push --tags",
-    "test": "jest",
-    "publish": "bun run build && npm publish"
+    "test": "jest"
   },
   "devDependencies": {
     "@types/bun": "latest",
