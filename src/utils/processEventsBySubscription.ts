@@ -27,13 +27,13 @@ export default async function processEventsBySubscription({
             blockResults: newBlockEvent.blockResults,
             blockHeight: newBlockEvent.blockHeight,
           });
-          continue;
+          break;
         case IndexerDataType.TX:
           await subscription.indexer({
             tx: newBlockEvent.tx,
             blockHeight: newBlockEvent.blockHeight,
           });
-          continue;
+          break;
         case IndexerDataType.EVENT:
           for (const event of newBlockEvent.events) {
             if (

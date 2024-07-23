@@ -78,5 +78,3 @@ export default async function backfillBlockRange({
     logger.info(`Finished backfilling unstake events from blocks ${range}`);
   }
 }
-
-export type BackfillBlockRangeFunction = typeof backfillBlockRange;

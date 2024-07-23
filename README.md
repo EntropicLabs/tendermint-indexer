@@ -258,7 +258,7 @@ After, setup the persister and run the Drizzle migration:
 ```typescript
 // index.ts
 import {
-  SQLPersister,
+  DrizzlePostgresPersister,
   DEFAULT_RETRIER,
   CometHttpClient,
 } from "@entropic-labs/tendermint-indexer";
@@ -285,35 +285,6 @@ await migrate(drizzle(persister.client), {
   // Change path based on where the db folder exists
   migrationsFolder: "./db/migrations"
 });
-
-// Continue with using the persister in an indexer...
-```
-### Raw SQL persister
-
-A SQL persister is available and requires a function that runs raw SQL queries in a SQL database (PostgreSQL, MySQL, etc.). The SQL persister creates a table for storing inclusive ranges of processed blocks' heights.
-
-```typescript
-import {
-  SQLPersister,
-  DEFAULT_RETRIER,
-  CometHttpClient,
-} from "@entropic-labs/tendermint-indexer";
-
-const httpClient = await CometHttpClient.create(
-  "https://test-rpc-kujira.mintthemoon.xyz",
-  DEFAULT_RETRIER
-);
-
-const sqlPersister = new SQLPersister(
-  async (query: string) => {
-    // Implement logic for running raw SQL queries in a SQL database
-    return [];
-  },
-  "blockHeightTableName",
-  httpClient
-);
-// Create the SQL table if it already doesn't exist
-await persister.setup();
 
 // Continue with using the persister in an indexer...
 ```

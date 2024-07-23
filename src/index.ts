@@ -26,7 +26,6 @@ import { Indexer, PersistantIndexer } from "./modules/indexer";
 import { Persister } from "./modules/persister";
 import type { BlockRange } from "./types/BlockRange";
 import type { IndexerHarness, BackfillHarness } from "./types/Harness";
-import { SQLPersister } from "./modules/sqlPersister";
 import { CreateIndexerParams } from "./types/CreateIndexerParams";
 import { DrizzlePostgresPersister } from "./modules/drizzlePostgresPersister";
 
@@ -45,7 +44,6 @@ export {
   IndexerDataType,
   PersistantIndexer,
   Persister,
-  SQLPersister,
   type BackfillHarness,
   type BackfillSetup,
   type BlockIndexer,

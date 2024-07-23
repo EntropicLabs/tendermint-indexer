@@ -218,6 +218,42 @@ test("getMissingRanges() no overlap with larger range", async () => {
   );
 });
 
+
+test("getMissingRanges() no overlap with one block difference", async () => {
+  testGetMissingRanges(
+    archiveEarliestBlockHeight,
+    archiveLatestBlockHeight,
+    [
+      {
+        startBlockHeight: 1,
+        endBlockHeight: 20,
+      },
+      {
+        startBlockHeight: 22,
+        endBlockHeight: 24,
+      },
+      {
+        startBlockHeight: 26,
+        endBlockHeight: 30,
+      },
+    ],
+    [
+      {
+        startBlockHeight: 21,
+        endBlockHeight: 21,
+      },
+      {
+        startBlockHeight: 25,
+        endBlockHeight: 25,
+      },
+      {
+        startBlockHeight: 31,
+        endBlockHeight: archiveLatestBlockHeight,
+      },
+    ]
+  );
+});
+
 test("mergeRanges() no overlap", async () => {
   testMergeRanges(
     [

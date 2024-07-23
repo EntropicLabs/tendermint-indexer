@@ -1,6 +1,5 @@
 import { TEST_ARCHIVE_HTTP_URL } from "./consts";
-import { BackfillSetup } from "../src";
-import { SQLPersister } from "../src/modules/sqlPersister";
+import { BackfillSetup, Persister } from "../src";
 import {
   createBackfiller,
   createExpBackoffRetrier,
@@ -27,76 +26,36 @@ async function testBackfiller(backfillSetup: BackfillSetup) {
     jitter: 1000,
   });
 
-  const httpClient = await CometHttpClient.create(
-    TEST_ARCHIVE_HTTP_URL,
-    retrier
-  );
-
-  class BasicIndexer implements Indexer {
-    persister: SQLPersister;
-
-    public static async create() {
-      const persister = new SQLPersister(
-        async (query) => {
-          if (query.includes("SELECT *")) {
-            // Simulate get all unprocessed blocks logic
-            const { latestBlockHeight } = await httpClient.getBlockHeights();
-            // Ensures that the backfiller backfills blocks 12000001 to 12000010
-            return [
-              { startBlockHeight: 1, endBlockHeight: 2 },
-              { startBlockHeight: 3, endBlockHeight: 5 },
-              { startBlockHeight: 6, endBlockHeight: 12000000 },
-              { startBlockHeight: 12000011, endBlockHeight: 12000014 },
-              { startBlockHeight: 12000015, endBlockHeight: latestBlockHeight },
-            ];
-          } else if (query.includes("SELECT 1")) {
-            // Simulate updateMinOrMaxRecord logic
-            const selectSplit = query.split("SELECT ")[1].split(",");
-            const startBlockHeight = parseInt(selectSplit[0].trim());
-            const endBlockHeight = parseInt(
-              selectSplit[1].split("WHERE NOT EXISTS (")[0].trim()
-            );
-
-            if (blockHeights.length === 0) {
-              blockHeights.push({ startBlockHeight, endBlockHeight });
-            }
-
-            // Simulate SQL UPDATE BY update block height records in a list
-            if (query.includes("LEAST")) {
-              for (let idx = 0; idx < blockHeights.length; idx++) {
-                if (blockHeights[idx].endBlockHeight === endBlockHeight) {
-                  blockHeights[idx].startBlockHeight = Math.min(
-                    startBlockHeight,
-                    blockHeights[idx].startBlockHeight
-                  );
-                  return [];
-                }
-              }
-            } else {
-              for (let idx = 0; idx < blockHeights.length; idx++) {
-                if (blockHeights[idx].startBlockHeight === startBlockHeight) {
-                  blockHeights[idx].endBlockHeight = Math.max(
-                    endBlockHeight,
-                    blockHeights[idx].endBlockHeight
-                  );
-                  return [];
-                }
-              }
-            }
-            // Simulate SQL INSERT BY pushing block height records to a list
-            blockHeights.push({ startBlockHeight, endBlockHeight });
-          }
-          return [];
-        },
-        "blockHeight",
-        httpClient
-      );
-      await persister.setup();
-      return new BasicIndexer(persister);
+  class BasicPersister implements Persister {
+    public async getUnprocessedBlockRanges(): Promise<BlockRange[]> {
+      // Ensures that the backfiller backfills blocks 12000001 to 12000010
+      return [{ startBlockHeight: 12000001, endBlockHeight: 12000010 }];
     }
 
-    constructor(persister: SQLPersister) {
-      this.persister = persister;
+    public async persistBlock(blockHeight: number): Promise<void> {
+      for (let idx = 0; idx < blockHeights.length; idx++) {
+        if (blockHeights[idx].endBlockHeight === blockHeight - 1) {
+          blockHeights[idx].endBlockHeight = blockHeight;
+          return;
+        } else if (blockHeights[idx].startBlockHeight === blockHeight + 1) {
+          blockHeights[idx].startBlockHeight = blockHeight;
+          return;
+        }
+      }
+
+      blockHeights.push({
+        startBlockHeight: blockHeight,
+        endBlockHeight: blockHeight,
+      });
+      blockHeights.sort((a, b) => a.startBlockHeight - b.startBlockHeight);
+    }
+  }
+
+  class BasicIndexer implements Indexer {
+    persister: BasicPersister;
+
+    constructor() {
+      this.persister = new BasicPersister();
     }
 
     public async destroy(): Promise<void> {}
@@ -137,11 +96,9 @@ async function testBackfiller(backfillSetup: BackfillSetup) {
     }
   }
 
-  const singleIndexer = await BasicIndexer.create();
-
   const backfiller = await createBackfiller({
     harness: {
-      indexer: singleIndexer,
+      indexer: new BasicIndexer(),
       retrier,
       httpUrl: TEST_ARCHIVE_HTTP_URL,
     },
@@ -202,12 +159,12 @@ test("Succeed in specific backfill", async () => {
       endBlockHeight: 12000001,
     },
     {
-      startBlockHeight: 12000009,
-      endBlockHeight: 12000009,
-    },
-    {
       startBlockHeight: 12000003,
       endBlockHeight: 12000003,
+    },
+    {
+      startBlockHeight: 12000009,
+      endBlockHeight: 12000009,
     },
   ]);
 }, 15000);
