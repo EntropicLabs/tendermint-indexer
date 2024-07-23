@@ -130,6 +130,17 @@ export class DrizzlePostgresPersister implements Persister {
   }
 
   /**
+   * Gets all the previously processed block ranges
+   * @returns A list of all processed block ranges, sorted by startBlockHeight ascending
+   */
+  async getProcessedBlockRanges(): Promise<(BlockRange & { id: number })[]> {
+    return await this.db
+      .select()
+      .from(this.blockHeightSchema)
+      .orderBy(this.blockHeightSchema.startBlockHeight);
+  }
+
+  /**
    * Gets all the previously unprocessed block ranges for historical backfilling
    * @returns A list of all unprocessed block ranges, sorted by startBlockHeight ascending
    */
