@@ -1,6 +1,6 @@
 {
   "name": "@entropic-labs/tendermint-indexer",
-  "version": "1.0.17",
+  "version": "1.0.18",
   "types": "dist/src/index.d.ts",
   "module": "dist/src/index.js",
   "main": "dist/src/index.js",
