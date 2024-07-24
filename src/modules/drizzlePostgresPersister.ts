@@ -224,7 +224,8 @@ export class DrizzlePostgresPersister implements Persister {
   public async getUnprocessedBlockRanges(): Promise<BlockRange[]> {
     await this.mergeBlockRanges();
 
-    const { earliestBlockHeight } = await this.httpClient.getBlockHeights();
+    const { earliestBlockHeight, latestBlockHeight } =
+      await this.httpClient.getBlockHeights();
 
     return await this.db.transaction(
       async (dbTx) => {
@@ -250,7 +251,10 @@ export class DrizzlePostgresPersister implements Persister {
            * from indexing the same block as the indexer in case the indexer
            * has a network delay.
            */
-          const maxBlockHeight = allRanges[allRanges.length - 1].endBlockHeight;
+          const maxBlockHeight = Math.min(
+            latestBlockHeight,
+            allRanges[allRanges.length - 1].endBlockHeight
+          );
 
           return getMissingRanges(minBlockHeight, maxBlockHeight, allRanges);
         });
