@@ -1,14 +1,26 @@
-import { drizzle, type NodePgDatabase } from "drizzle-orm/node-postgres";
-import { asc, eq, inArray } from "drizzle-orm";
+import {
+  drizzle,
+  NodePgQueryResultHKT,
+  type NodePgDatabase,
+} from "drizzle-orm/node-postgres";
+import { asc, eq, ExtractTablesWithRelations, inArray } from "drizzle-orm";
 import { Client } from "pg";
 import { CometHttpClient } from "../clients";
 import { BlockRange } from "../types/BlockRange";
 import logger from "./logger";
 import { Persister } from "./persister";
-import { Retrier } from "./retry";
+import { createErrorRetrier, ErrorRetrier, Retrier } from "./retry";
 import getMissingRanges from "../utils/getMissingRanges";
 import mergeRanges from "../utils/mergeRanges";
-import { integer, pgTable, serial } from "drizzle-orm/pg-core";
+import { integer, pgTable, PgTransaction, serial } from "drizzle-orm/pg-core";
+import { sleep } from "../utils/sleep";
+
+const GET_DB_CLIENT_DELAY_MS = 100;
+type PostgresTransaction = PgTransaction<
+  NodePgQueryResultHKT,
+  Record<string, never>,
+  ExtractTablesWithRelations<Record<string, never>>
+>;
 
 /**
  * A Drizzle PostgreSQL persister that stores inclusive ranges of indexed blocks' heights.
@@ -22,6 +34,10 @@ export class DrizzlePostgresPersister implements Persister {
    * Triggers a reconnect on database disconnects
    */
   private retrier: Retrier;
+  /**
+   * Triggers a retry on database transaction failures
+   */
+  private errorRetrier: ErrorRetrier;
   /**
    * Reference to pg database connection
    */
@@ -52,6 +68,7 @@ export class DrizzlePostgresPersister implements Persister {
   ) {
     this.httpClient = httpClient;
     this.retrier = retrier;
+    this.errorRetrier = createErrorRetrier(this.retrier);
     this.connectionUrl = connectionUrl;
     this.client = new Client({
       connectionString: connectionUrl,
@@ -74,6 +91,18 @@ export class DrizzlePostgresPersister implements Persister {
   public async disconnect() {
     this.shouldAttemptReconnect = false;
     await this.client.end();
+  }
+
+  /**
+   * Get the DB client
+   * @returns A connected node-postgres client
+   */
+  public async getConnectedClient() {
+    while (!this.isDbConnected) {
+      await sleep(GET_DB_CLIENT_DELAY_MS);
+    }
+
+    return this.client;
   }
 
   /**
@@ -134,10 +163,50 @@ export class DrizzlePostgresPersister implements Persister {
    * @returns A list of all processed block ranges, sorted by startBlockHeight ascending
    */
   async getProcessedBlockRanges(): Promise<(BlockRange & { id: number })[]> {
-    return await this.db
-      .select()
-      .from(this.blockHeightSchema)
-      .orderBy(this.blockHeightSchema.startBlockHeight);
+    return await this.retrier.wrap(async (success, retry) => {
+      const results = await this.db
+        .select()
+        .from(this.blockHeightSchema)
+        .orderBy(this.blockHeightSchema.startBlockHeight)
+        .catch(async (error) => {
+          logger.error(`Error in getProcessedBlockRanges(): ${error}`);
+          return await retry(error);
+        });
+
+      await success();
+      return results;
+    });
+  }
+
+  /**
+   * Runs a Postgres transaction and retries on error
+   * @param tx Reference to the Postgres transaction object
+   * @param callback Callback for Postgres transaction logic
+   * @returns Results from Postgres transaction
+   */
+  private async retryTransaction<T>(
+    tx: PostgresTransaction,
+    callback: (tx: PostgresTransaction) => Promise<T>
+  ) {
+    return await this.errorRetrier.wrap(
+      async () => {
+        return await callback(tx);
+      },
+      {
+        onFailedAttempt: async (error, attempt) => {
+          logger.error(
+            `Failed drizzle postgres persister transaction on attempt ${attempt}: ${error}`
+          );
+          await tx.rollback();
+        },
+        onFailedLastAttempt: async (error, attempt) => {
+          logger.error(
+            `Failed drizzle postgres persister transaction on final attempt ${attempt}: ${error}`
+          );
+          await tx.rollback();
+        },
+      }
+    );
   }
 
   /**
@@ -150,27 +219,29 @@ export class DrizzlePostgresPersister implements Persister {
     const { earliestBlockHeight } = await this.httpClient.getBlockHeights();
 
     return await this.db.transaction(
-      async (tx) => {
-        const allRanges = await tx
-          .select()
-          .from(this.blockHeightSchema)
-          .orderBy(asc(this.blockHeightSchema.startBlockHeight));
+      async (dbTx) => {
+        return await this.retryTransaction(dbTx, async (tx) => {
+          const allRanges = await tx
+            .select()
+            .from(this.blockHeightSchema)
+            .orderBy(asc(this.blockHeightSchema.startBlockHeight));
 
-        // Only backfill if there exists at least one processed block
-        if (allRanges.length === 0) {
-          return [];
-        }
+          // Only backfill if there exists at least one processed block
+          if (allRanges.length === 0) {
+            return [];
+          }
 
-        const minBlockHeight = earliestBlockHeight;
-        /**
-         * Set the max block height to the latest processed block height as opposed to the
-         * latest block height saved by the RPC node. This prevents the backfiller
-         * from indexing the same block as the indexer in case the indexer
-         * has a network delay.
-         */
-        const maxBlockHeight = allRanges[allRanges.length - 1].endBlockHeight;
+          const minBlockHeight = earliestBlockHeight;
+          /**
+           * Set the max block height to the latest processed block height as opposed to the
+           * latest block height saved by the RPC node. This prevents the backfiller
+           * from indexing the same block as the indexer in case the indexer
+           * has a network delay.
+           */
+          const maxBlockHeight = allRanges[allRanges.length - 1].endBlockHeight;
 
-        return getMissingRanges(minBlockHeight, maxBlockHeight, allRanges);
+          return getMissingRanges(minBlockHeight, maxBlockHeight, allRanges);
+        });
       },
       {
         /**
@@ -187,34 +258,36 @@ export class DrizzlePostgresPersister implements Persister {
    * @param blockHeight Block height
    */
   public async persistBlock(blockHeight: number): Promise<void> {
-    await this.db.transaction(
-      async (tx) => {
-        // Try updating startBlockHeight of existing record
-        let result = await tx
-          .update(this.blockHeightSchema)
-          .set({ startBlockHeight: blockHeight })
-          .where(eq(this.blockHeightSchema.startBlockHeight, blockHeight + 1))
-          .returning();
+    return await this.db.transaction(
+      async (dbTx) => {
+        return await this.retryTransaction(dbTx, async (tx) => {
+          // Try updating startBlockHeight of existing record
+          let result = await tx
+            .update(this.blockHeightSchema)
+            .set({ startBlockHeight: blockHeight })
+            .where(eq(this.blockHeightSchema.startBlockHeight, blockHeight + 1))
+            .returning();
 
-        if (result.length > 0) {
-          return;
-        }
+          if (result.length > 0) {
+            return;
+          }
 
-        // Try updating endBlockHeight of existing record
-        result = await tx
-          .update(this.blockHeightSchema)
-          .set({ endBlockHeight: blockHeight })
-          .where(eq(this.blockHeightSchema.endBlockHeight, blockHeight - 1))
-          .returning();
+          // Try updating endBlockHeight of existing record
+          result = await tx
+            .update(this.blockHeightSchema)
+            .set({ endBlockHeight: blockHeight })
+            .where(eq(this.blockHeightSchema.endBlockHeight, blockHeight - 1))
+            .returning();
 
-        if (result.length > 0) {
-          return;
-        }
+          if (result.length > 0) {
+            return;
+          }
 
-        // If record doesn't exist, create a new block height record
-        await tx.insert(this.blockHeightSchema).values({
-          startBlockHeight: blockHeight,
-          endBlockHeight: blockHeight,
+          // If record doesn't exist, create a new block height record
+          await tx.insert(this.blockHeightSchema).values({
+            startBlockHeight: blockHeight,
+            endBlockHeight: blockHeight,
+          });
         });
       },
       {
@@ -233,37 +306,39 @@ export class DrizzlePostgresPersister implements Persister {
    *
    * @returns A list of all block ranges, post-merge
    */
-  private async mergeBlockRanges() {
-    await this.db.transaction(
-      async (tx) => {
-        try {
-          const allRanges = await tx
-            .select()
-            .from(this.blockHeightSchema)
-            .orderBy(asc(this.blockHeightSchema.startBlockHeight));
+  private async mergeBlockRanges(): Promise<void> {
+    return await this.db.transaction(
+      async (dbTx) => {
+        return await this.retryTransaction(dbTx, async (tx) => {
+          try {
+            const allRanges = await tx
+              .select()
+              .from(this.blockHeightSchema)
+              .orderBy(asc(this.blockHeightSchema.startBlockHeight));
 
-          const { rangesToDelete, rangesToUpdate } = mergeRanges(allRanges);
+            const { rangesToDelete, rangesToUpdate } = mergeRanges(allRanges);
 
-          if (rangesToDelete.length > 0) {
-            await tx
-              .delete(this.blockHeightSchema)
-              .where(inArray(this.blockHeightSchema.id, rangesToDelete));
+            if (rangesToDelete.length > 0) {
+              await tx
+                .delete(this.blockHeightSchema)
+                .where(inArray(this.blockHeightSchema.id, rangesToDelete));
+            }
+
+            for (const update of rangesToUpdate) {
+              await tx
+                .update(this.blockHeightSchema)
+                .set(update)
+                .where(eq(this.blockHeightSchema.id, update.id));
+            }
+
+            rangesToUpdate.sort(
+              (a, b) => a.startBlockHeight - b.startBlockHeight
+            );
+          } catch (error) {
+            logger.error(`Merge block transaction failed: ${error}`);
+            await tx.rollback();
           }
-
-          for (const update of rangesToUpdate) {
-            await tx
-              .update(this.blockHeightSchema)
-              .set(update)
-              .where(eq(this.blockHeightSchema.id, update.id));
-          }
-
-          rangesToUpdate.sort(
-            (a, b) => a.startBlockHeight - b.startBlockHeight
-          );
-        } catch (error) {
-          logger.error(`Merge block transaction failed: ${error}`);
-          await tx.rollback();
-        }
+        });
       },
       {
         /**
