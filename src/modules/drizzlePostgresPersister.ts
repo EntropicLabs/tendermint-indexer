@@ -41,7 +41,7 @@ export class DrizzlePostgresPersister implements Persister {
   /**
    * Reference to pg database connection
    */
-  public client: Client;
+  private client: Client;
   private connectionUrl: string;
   /**
    * If set to true, attempt a reconnect on database disconnect
@@ -53,18 +53,25 @@ export class DrizzlePostgresPersister implements Persister {
    * Drizzle schema for the table storing processed block height records
    */
   private blockHeightSchema;
+  /**
+   * Optional min block height. If defined, the persister won't
+   * consider any block with smaller heights as unprocessed blocks.
+   */
+  private minBlockHeight: number | undefined;
 
   /**
    * @param connectionUrl PostgreSQL connection URL for database
    * @param retrier  Triggers a reconnect on database disconnects
    * @param httpClient  HTTP client used to get RPC info
    * @param blockHeightTableName Table name defined in Drizzle schema
+   * @param minBlockHeight Optional minimum block height
    */
   constructor(
     connectionUrl: string,
     retrier: Retrier,
     httpClient: CometHttpClient,
-    blockHeightTableName: string
+    blockHeightTableName: string,
+    minBlockHeight?: number
   ) {
     this.httpClient = httpClient;
     this.retrier = retrier;
@@ -79,6 +86,7 @@ export class DrizzlePostgresPersister implements Persister {
       startBlockHeight: integer("startBlockHeight").notNull(),
       endBlockHeight: integer("endBlockHeight").notNull(),
     });
+    this.minBlockHeight = minBlockHeight;
   }
 
   public isConnected() {
@@ -231,7 +239,11 @@ export class DrizzlePostgresPersister implements Persister {
             return [];
           }
 
-          const minBlockHeight = earliestBlockHeight;
+          const minBlockHeight = Math.max(
+            this.minBlockHeight || 0,
+            earliestBlockHeight
+          );
+          
           /**
            * Set the max block height to the latest processed block height as opposed to the
            * latest block height saved by the RPC node. This prevents the backfiller
