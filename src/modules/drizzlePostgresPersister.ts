@@ -243,7 +243,7 @@ export class DrizzlePostgresPersister implements Persister {
             this.minBlockHeight || 0,
             earliestBlockHeight
           );
-          
+
           /**
            * Set the max block height to the latest processed block height as opposed to the
            * latest block height saved by the RPC node. This prevents the backfiller
@@ -322,34 +322,29 @@ export class DrizzlePostgresPersister implements Persister {
     return await this.db.transaction(
       async (dbTx) => {
         return await this.retryTransaction(dbTx, async (tx) => {
-          try {
-            const allRanges = await tx
-              .select()
-              .from(this.blockHeightSchema)
-              .orderBy(asc(this.blockHeightSchema.startBlockHeight));
+          const allRanges = await tx
+            .select()
+            .from(this.blockHeightSchema)
+            .orderBy(asc(this.blockHeightSchema.startBlockHeight));
 
-            const { rangesToDelete, rangesToUpdate } = mergeRanges(allRanges);
+          const { rangesToDelete, rangesToUpdate } = mergeRanges(allRanges);
 
-            if (rangesToDelete.length > 0) {
-              await tx
-                .delete(this.blockHeightSchema)
-                .where(inArray(this.blockHeightSchema.id, rangesToDelete));
-            }
-
-            for (const update of rangesToUpdate) {
-              await tx
-                .update(this.blockHeightSchema)
-                .set(update)
-                .where(eq(this.blockHeightSchema.id, update.id));
-            }
-
-            rangesToUpdate.sort(
-              (a, b) => a.startBlockHeight - b.startBlockHeight
-            );
-          } catch (error) {
-            logger.error(`Merge block transaction failed: ${error}`);
-            await tx.rollback();
+          if (rangesToDelete.length > 0) {
+            await tx
+              .delete(this.blockHeightSchema)
+              .where(inArray(this.blockHeightSchema.id, rangesToDelete));
           }
+
+          for (const update of rangesToUpdate) {
+            await tx
+              .update(this.blockHeightSchema)
+              .set(update)
+              .where(eq(this.blockHeightSchema.id, update.id));
+          }
+
+          rangesToUpdate.sort(
+            (a, b) => a.startBlockHeight - b.startBlockHeight
+          );
         });
       },
       {
