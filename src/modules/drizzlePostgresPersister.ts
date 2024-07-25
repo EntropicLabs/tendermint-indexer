@@ -12,7 +12,13 @@ import { Persister } from "./persister";
 import { createErrorRetrier, ErrorRetrier, Retrier } from "./retry";
 import getMissingRanges from "../utils/getMissingRanges";
 import mergeRanges from "../utils/mergeRanges";
-import { integer, pgTable, PgTransaction, serial } from "drizzle-orm/pg-core";
+import {
+  integer,
+  pgTable,
+  PgTransaction,
+  PgTransactionConfig,
+  serial,
+} from "drizzle-orm/pg-core";
 import { sleep } from "../utils/sleep";
 
 const GET_DB_CLIENT_DELAY_MS = 100;
@@ -193,25 +199,36 @@ export class DrizzlePostgresPersister implements Persister {
    * @returns Results from Postgres transaction
    */
   private async retryTransaction<T>(
-    tx: PostgresTransaction,
-    callback: (tx: PostgresTransaction) => Promise<T>
-  ) {
+    callback: (tx: PostgresTransaction) => Promise<T>,
+    transactionConfig: PgTransactionConfig
+  ): Promise<T> {
     return await this.errorRetrier.wrap(
       async () => {
-        return await callback(tx);
+        return await this.db.transaction(async (tx) => {
+          try {
+            return await callback(tx);
+          } catch (error) {
+            /**
+             * Throws an error, which will be caught by the transaction, trigger a rollback,
+             * and throw another error caught by the error retrier to retry the transaction.
+             */
+            logger.error(
+              `Error in drizzle postgres persister transaction: ${error}`
+            );
+            return tx.rollback();
+          }
+        }, transactionConfig);
       },
       {
         onFailedAttempt: async (error, attempt) => {
           logger.error(
             `Failed drizzle postgres persister transaction on attempt ${attempt}: ${error}`
           );
-          await tx.rollback();
         },
         onFailedLastAttempt: async (error, attempt) => {
           logger.error(
             `Failed drizzle postgres persister transaction on final attempt ${attempt}: ${error}`
           );
-          await tx.rollback();
         },
       }
     );
@@ -227,42 +244,40 @@ export class DrizzlePostgresPersister implements Persister {
     const { earliestBlockHeight, latestBlockHeight } =
       await this.httpClient.getBlockHeights();
 
-    return await this.db.transaction(
-      async (dbTx) => {
-        return await this.retryTransaction(dbTx, async (tx) => {
-          const allRanges = await tx
-            .select()
-            .from(this.blockHeightSchema)
-            .orderBy(asc(this.blockHeightSchema.startBlockHeight));
+    return await this.retryTransaction(
+      async (tx) => {
+        const allRanges = await tx
+          .select()
+          .from(this.blockHeightSchema)
+          .orderBy(asc(this.blockHeightSchema.startBlockHeight));
 
-          // Only backfill if there exists at least one processed block
-          if (allRanges.length === 0) {
-            return [];
-          }
+        // Only backfill if there exists at least one processed block
+        if (allRanges.length === 0) {
+          return [];
+        }
 
-          const minBlockHeight = Math.max(
-            this.minBlockHeight || 0,
-            earliestBlockHeight
-          );
+        const minBlockHeight = Math.max(
+          this.minBlockHeight || 0,
+          earliestBlockHeight
+        );
 
-          /**
-           * Set the max block height to the latest processed block height as opposed to the
-           * latest block height saved by the RPC node. This prevents the backfiller
-           * from indexing the same block as the indexer in case the indexer
-           * has a network delay.
-           */
-          const maxBlockHeight = Math.min(
-            latestBlockHeight,
-            allRanges[allRanges.length - 1].endBlockHeight
-          );
-
-          return getMissingRanges(minBlockHeight, maxBlockHeight, allRanges);
-        });
-      },
-      {
         /**
-         * Ensure that any block ranges read are committed and prevent dirty reads
+         * Set the max block height to the latest processed block height as opposed to the
+         * latest block height saved by the RPC node. This prevents the backfiller
+         * from indexing the same block as the indexer in case the indexer
+         * has a network delay.
          */
+        const maxBlockHeight = Math.min(
+          latestBlockHeight,
+          allRanges[allRanges.length - 1].endBlockHeight
+        );
+
+        return getMissingRanges(minBlockHeight, maxBlockHeight, allRanges);
+      },
+      /**
+       * Ensure that any block ranges read are committed and prevent dirty reads
+       */
+      {
         isolationLevel: "read committed",
         accessMode: "read only",
       }
@@ -274,43 +289,41 @@ export class DrizzlePostgresPersister implements Persister {
    * @param blockHeight Block height
    */
   public async persistBlock(blockHeight: number): Promise<void> {
-    return await this.db.transaction(
-      async (dbTx) => {
-        return await this.retryTransaction(dbTx, async (tx) => {
-          // Try updating startBlockHeight of existing record
-          let result = await tx
-            .update(this.blockHeightSchema)
-            .set({ startBlockHeight: blockHeight })
-            .where(eq(this.blockHeightSchema.startBlockHeight, blockHeight + 1))
-            .returning();
+    return await this.retryTransaction(
+      async (tx) => {
+        // Try updating startBlockHeight of existing record
+        let result = await tx
+          .update(this.blockHeightSchema)
+          .set({ startBlockHeight: blockHeight })
+          .where(eq(this.blockHeightSchema.startBlockHeight, blockHeight + 1))
+          .returning();
 
-          if (result.length > 0) {
-            return;
-          }
+        if (result.length > 0) {
+          return;
+        }
 
-          // Try updating endBlockHeight of existing record
-          result = await tx
-            .update(this.blockHeightSchema)
-            .set({ endBlockHeight: blockHeight })
-            .where(eq(this.blockHeightSchema.endBlockHeight, blockHeight - 1))
-            .returning();
+        // Try updating endBlockHeight of existing record
+        result = await tx
+          .update(this.blockHeightSchema)
+          .set({ endBlockHeight: blockHeight })
+          .where(eq(this.blockHeightSchema.endBlockHeight, blockHeight - 1))
+          .returning();
 
-          if (result.length > 0) {
-            return;
-          }
+        if (result.length > 0) {
+          return;
+        }
 
-          // If record doesn't exist, create a new block height record
-          await tx.insert(this.blockHeightSchema).values({
-            startBlockHeight: blockHeight,
-            endBlockHeight: blockHeight,
-          });
+        // If record doesn't exist, create a new block height record
+        await tx.insert(this.blockHeightSchema).values({
+          startBlockHeight: blockHeight,
+          endBlockHeight: blockHeight,
         });
       },
+      /**
+       * Run transaction with read committed to only update committed ranges
+       * and prevent dirty reads
+       **/
       {
-        /**
-         * Run transaction with read committed to only update committed ranges
-         * and prevent dirty reads
-         **/
         isolationLevel: "read committed",
         accessMode: "read write",
       }
@@ -323,41 +336,37 @@ export class DrizzlePostgresPersister implements Persister {
    * @returns A list of all block ranges, post-merge
    */
   private async mergeBlockRanges(): Promise<void> {
-    return await this.db.transaction(
-      async (dbTx) => {
-        return await this.retryTransaction(dbTx, async (tx) => {
-          const allRanges = await tx
-            .select()
-            .from(this.blockHeightSchema)
-            .orderBy(asc(this.blockHeightSchema.startBlockHeight));
+    return await this.retryTransaction(
+      async (tx) => {
+        const allRanges = await tx
+          .select()
+          .from(this.blockHeightSchema)
+          .orderBy(asc(this.blockHeightSchema.startBlockHeight));
 
-          const { rangesToDelete, rangesToUpdate } = mergeRanges(allRanges);
+        const { rangesToDelete, rangesToUpdate } = mergeRanges(allRanges);
 
-          if (rangesToDelete.length > 0) {
-            await tx
-              .delete(this.blockHeightSchema)
-              .where(inArray(this.blockHeightSchema.id, rangesToDelete));
-          }
+        if (rangesToDelete.length > 0) {
+          await tx
+            .delete(this.blockHeightSchema)
+            .where(inArray(this.blockHeightSchema.id, rangesToDelete));
+        }
 
-          for (const update of rangesToUpdate) {
-            await tx
-              .update(this.blockHeightSchema)
-              .set(update)
-              .where(eq(this.blockHeightSchema.id, update.id));
-          }
+        for (const update of rangesToUpdate) {
+          await tx
+            .update(this.blockHeightSchema)
+            .set(update)
+            .where(eq(this.blockHeightSchema.id, update.id));
+        }
 
-          rangesToUpdate.sort(
-            (a, b) => a.startBlockHeight - b.startBlockHeight
-          );
-        });
+        rangesToUpdate.sort((a, b) => a.startBlockHeight - b.startBlockHeight);
       },
+      /**
+       * Since all ranges are fetched initially
+       * and then updated/deleted, serializable prevents cases where the backfiller
+       * calculates merged ranges, the indexer updates a range, and then the backfiller
+       * erases that range.
+       */
       {
-        /**
-         * Since all ranges are fetched initially
-         * and then updated/deleted, serializable prevents cases where the backfiller
-         * calculates merged ranges, the indexer updates a range, and then the backfiller
-         * erases that range.
-         */
         isolationLevel: "serializable",
         accessMode: "read write",
       }
