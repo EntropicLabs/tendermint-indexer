@@ -1,7 +1,7 @@
 import { CometHttpPollClient } from "../src/clients/cometHttpPollClient";
 import { createRetrier } from "../src/modules/retry";
 import { sleep } from "../src/utils/sleep";
-import { TEST_ARCHIVE_HTTP_URL } from "./consts";
+import { TEST_HTTP_URL } from "./consts";
 import { isConnectionEvent } from "../src/types/Events";
 
 test("Successfully listen and destroy HTTP Poll Client with proper block height ordering", async () => {
@@ -18,7 +18,7 @@ test("Successfully listen and destroy HTTP Poll Client with proper block height 
   const blockData: number[] = [];
 
   const httpPollClient = await CometHttpPollClient.create(
-    TEST_ARCHIVE_HTTP_URL,
+    TEST_HTTP_URL,
     retrier,
     (event) => {
       if (isConnectionEvent(event)) {
@@ -67,7 +67,7 @@ test("Successfully listen, disconnect, and re-listen HTTP client with proper blo
   const blockData: number[] = [];
 
   const httpPollClient = await CometHttpPollClient.create(
-    TEST_ARCHIVE_HTTP_URL,
+    TEST_HTTP_URL,
     retrier,
     (event) => {
       if (isConnectionEvent(event)) {

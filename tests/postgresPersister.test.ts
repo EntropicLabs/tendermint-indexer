@@ -218,7 +218,6 @@ test("getMissingRanges() no overlap with larger range", async () => {
   );
 });
 
-
 test("getMissingRanges() no overlap with one block difference", async () => {
   testGetMissingRanges(
     archiveEarliestBlockHeight,
@@ -252,6 +251,10 @@ test("getMissingRanges() no overlap with one block difference", async () => {
       },
     ]
   );
+});
+
+test("mergeRanges() empty", async () => {
+  testMergeRanges([], [], []);
 });
 
 test("mergeRanges() no overlap", async () => {

@@ -12,13 +12,13 @@ import { CometHttpClient } from "./clients/cometHttpClient";
 import { sleep } from "./utils/sleep";
 import { DEFAULT_RETRIER } from "./modules/retry";
 
-// Delay between each time the indexer queue is processed 
+// Delay between each time the indexer queue is processed
 const PROCESS_QUEUE_EVERY_MS = 100;
 // Delay before the indexer and its subscriptions are destroyed
 const DESTROY_DELAY_MS = 3000;
 
 /**
- * Create an indexer for indexing live, new block data. 
+ * Create an indexer for indexing live, new block data.
  * Returns a start, connection status, and destroy callback.
  */
 export default async function createIndexer({
@@ -29,8 +29,32 @@ export default async function createIndexer({
   let prevBlockHeight = 0;
   const tmEventQueue: (NewBlockEvent | ConnectionEvent)[] = [];
 
+  /**
+   * Adds connection or event to the queue. Must call this function in increasing order of block height.
+   * @param event Connection or New Block event
+   */
   const addEvent: AddEventFunction = (event) => {
     // Instead of processing each event right away, we'll add the event to a queue
+    if (isConnectionEvent(event)) {
+      tmEventQueue.push(event);
+      return;
+    }
+
+    // Make sure that the queue maintains block height ordering.
+    if (tmEventQueue.length > 0) {
+      const endEvent = tmEventQueue[tmEventQueue.length - 1];
+      if (
+        !isConnectionEvent(endEvent) &&
+        endEvent.blockHeight + 1 !== event.blockHeight
+      ) {
+        throw new Error(
+          `Queue ${JSON.stringify(tmEventQueue)} will not be ordered after pushing ${
+            event.blockHeight
+          }`
+        );
+      }
+    }
+
     tmEventQueue.push(event);
   };
 
@@ -41,7 +65,7 @@ export default async function createIndexer({
 
   const httpClient = await CometHttpClient.create(
     harness.httpUrl,
-    harness.retrier || DEFAULT_RETRIER,
+    harness.retrier || DEFAULT_RETRIER
   );
 
   async function processTmEventQueue() {
@@ -59,7 +83,7 @@ export default async function createIndexer({
 
       if (tmEvent.blockHeight < prevBlockHeight) {
         throw new Error(
-          `Block ${tmEvent.blockHeight} is queued after block ${prevBlockHeight}`,
+          `Block ${tmEvent.blockHeight} is queued after block ${prevBlockHeight}`
         );
       }
 

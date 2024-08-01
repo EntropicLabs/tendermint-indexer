@@ -64,16 +64,16 @@ async function testIndexer(endpointType: EndpointType, ms: number) {
     public subscriptions(): Subscription[] {
       return [
         {
-          filter: {
-            eventType: {
-              matches: ["transfer"],
-              contains: ["a"],
-            },
-          },
           indexer: this.eventIndexer.bind(this),
           type: IndexerDataType.EVENT,
         },
         {
+          filter: {
+            eventType: {
+              matches: ["transfer"],
+              contains: ["a", "e", "i", "o", "u"],
+            },
+          },
           indexer: this.eventIndexer2.bind(this),
           type: IndexerDataType.EVENT,
         },

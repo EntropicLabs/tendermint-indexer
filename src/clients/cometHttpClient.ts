@@ -63,10 +63,14 @@ export class CometHttpClient {
       },
       {
         onFailedAttempt: async (error, attempt) => {
-          logger.warn(`getBlockData() failed attempt ${attempt}: ${error}`);
+          logger.warn(
+            `getBlockData(${height}) failed attempt ${attempt}: ${error}`
+          );
         },
-        onFailedLastAttempt: () => {
-          logger.error("getBlockData(): Max retries exceeded, aborting...");
+        onFailedLastAttempt: (error) => {
+          logger.error(
+            `getBlockData(${height}): Max retries exceeded, aborting...: ${error}`
+          );
         },
       }
     );
@@ -85,10 +89,14 @@ export class CometHttpClient {
       },
       {
         onFailedAttempt: async (error, attempt) => {
-          logger.warn(`getBlockTime() failed attempt ${attempt}: ${error}`);
+          logger.warn(
+            `getBlockTime(${height}) failed attempt ${attempt}: ${error}`
+          );
         },
-        onFailedLastAttempt: () => {
-          logger.error("getBlockTime(): Max retries exceeded, aborting...");
+        onFailedLastAttempt: (error) => {
+          logger.error(
+            `getBlockTime(${height}): Max retries exceeded, aborting...: ${error}`
+          );
         },
       }
     );
