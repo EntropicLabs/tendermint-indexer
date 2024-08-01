@@ -2,15 +2,13 @@ import { CometHttpClient } from "./clients";
 import { BackfillOrder } from "./types/BackfillOrder";
 import type { CreateBackfillerParams } from "./types/CreateBackfillerParams";
 import backfillBlockRange from "./utils/backfillBlockRange";
-import { splitRangeEvenly, splitRangesBySize } from "./utils/splitRange";
+import { splitRangeEvenly } from "./utils/splitRange";
 import { backfillBlock } from "./utils/backfillBlock";
 import logger, { setMinLogLevel } from "./modules/logger";
 import { DEFAULT_RETRIER } from './modules/retry';
 
 // Minimum number of blocks that be processed by a single process when concurrently backfilling
 const MIN_BLOCKS_PER_RANGE = 100;
-// Maximum size of block ranges when splitting a larger block range into smaller block ranges when concurrently backfilling
-const MAX_BLOCKS = 200;
 
 /**
  * Create an backfiller for indexing historical block data.
@@ -71,15 +69,9 @@ export default async function createBackfiller({
         const unprocessedConcurrentBlockRanges =
           await harness.indexer.persister.getUnprocessedBlockRanges();
 
-        // Split ranges into smaller, more manegeable chunks to reduce fragementation
-        const smallerBlockRanges = splitRangesBySize({
-          blockRanges: unprocessedConcurrentBlockRanges,
-          size: MAX_BLOCKS,
-        });
-
         const { numProcesses } = backfillSetup;
 
-        for (const blockRange of smallerBlockRanges) {
+        for (const blockRange of unprocessedConcurrentBlockRanges) {
           // Split block into even chunks for each thread
           const evenUnprocessedBlockRanges = splitRangeEvenly({
             blockRange,
