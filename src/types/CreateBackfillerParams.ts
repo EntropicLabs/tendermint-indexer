@@ -14,14 +14,16 @@ export type CreateBackfillerParams = {
           | typeof BackfillOrder.ASCENDING;
       }
     | {
-        // Backfill unprocessed blocks in any order of block height in a concurrent manner
+        // Backfill unprocessed blocks in a concurrent manner
         backfillOrder: typeof BackfillOrder.CONCURRENT;
         // Number of concurrent processes that are backfilling
         numProcesses: number;
       }
     | {
         // Backfill specified blocks in order of position in blockHeightsToProcess
-        backfillOrder: typeof BackfillOrder.SPECIFIC;
+        backfillOrder:
+          | typeof BackfillOrder.CONCURRENT_SPECIFIC
+          | typeof BackfillOrder.SPECIFIC;
         blockHeightsToProcess: number[];
         // If false, skip persisting each block after indexing
         shouldPersist: boolean;

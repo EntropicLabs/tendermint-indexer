@@ -1,9 +1,20 @@
-import { HttpClient, Tendermint37Client } from "@cosmjs/tendermint-rpc";
+import {
+  HttpBatchClient,
+  HttpClient,
+  Tendermint37Client,
+} from "@cosmjs/tendermint-rpc";
 import flattenEvent from "../utils/flattenEvent";
 import type { ErrorRetrier, Retrier } from "../modules/retry";
 import { createErrorRetrier } from "../modules/retry";
 import logger from "../modules/logger";
 import type { BlockData } from "../types/BlockData";
+
+/**
+ * Parameters found to work well with larger backfills, but may need further
+ * benchmarking/tweaking.
+ */
+const BATCH_DISPATCH_INTERVAL = 200;
+const BATCH_SIZE_LIMIT = 20;
 
 /**
  * Sets up a CometBFT HTTP connection to query block information
@@ -25,10 +36,21 @@ export class CometHttpClient {
    * Create a new CometHTTPClient
    * @param endpoint RPC HTTP endpoint
    * @param retrier Error retrier that wraps around HTTP RPC calls
+   * @param shouldBatchRequests If true, HTTP requests will be batched
    * @returns CometHTTPClient
    */
-  static async create(endpoint: string, retrier: Retrier) {
-    const rpcClient = new HttpClient(endpoint);
+  static async create(
+    endpoint: string,
+    retrier: Retrier,
+    shouldBatchRequests = false
+  ) {
+    const rpcClient = shouldBatchRequests
+      ? new HttpBatchClient(endpoint, {
+          dispatchInterval: BATCH_DISPATCH_INTERVAL,
+          batchSizeLimit: BATCH_SIZE_LIMIT,
+        })
+      : new HttpClient(endpoint);
+
     const tmClient = await Tendermint37Client.create(rpcClient);
     return new CometHttpClient(tmClient, retrier);
   }

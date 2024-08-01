@@ -2,15 +2,10 @@ import { CometHttpClient } from "./clients";
 import { BackfillOrder } from "./types/BackfillOrder";
 import type { CreateBackfillerParams } from "./types/CreateBackfillerParams";
 import backfillBlockRange from "./utils/backfillBlockRange";
-import { splitRangeEvenly, splitRangesBySize } from "./utils/splitRange";
+import { splitRangeEvenly } from "./utils/splitRange";
 import { backfillBlock } from "./utils/backfillBlock";
 import logger, { setMinLogLevel } from "./modules/logger";
-import { DEFAULT_RETRIER } from './modules/retry';
-
-// Minimum number of blocks that be processed by a single process when concurrently backfilling
-const MIN_BLOCKS_PER_RANGE = 100;
-// Maximum size of block ranges when splitting a larger block range into smaller block ranges when concurrently backfilling
-const MAX_BLOCKS = 200;
+import { DEFAULT_RETRIER } from "./modules/retry";
 
 /**
  * Create an backfiller for indexing historical block data.
@@ -25,7 +20,9 @@ export default async function createBackfiller({
 
   const httpClient = await CometHttpClient.create(
     harness.httpUrl,
-    harness.retrier || DEFAULT_RETRIER
+    harness.retrier || DEFAULT_RETRIER,
+    // Batch concurrent http requests for block data
+    backfillSetup.backfillOrder === BackfillOrder.CONCURRENT_SPECIFIC
   );
 
   async function start() {
@@ -37,7 +34,6 @@ export default async function createBackfiller({
     switch (backfillOrder) {
       case BackfillOrder.ASCENDING:
       case BackfillOrder.DESCENDING:
-
         // Process blocks not seen by the backfiller
         let unprocessedBlockRanges =
           await harness.indexer.persister.getUnprocessedBlockRanges();
@@ -71,23 +67,15 @@ export default async function createBackfiller({
         const unprocessedConcurrentBlockRanges =
           await harness.indexer.persister.getUnprocessedBlockRanges();
 
-        // Split ranges into smaller, more manegeable chunks to reduce fragementation
-        const smallerBlockRanges = splitRangesBySize({
-          blockRanges: unprocessedConcurrentBlockRanges,
-          size: MAX_BLOCKS,
-        });
-
         const { numProcesses } = backfillSetup;
 
-        for (const blockRange of smallerBlockRanges) {
+        for (const blockRange of unprocessedConcurrentBlockRanges) {
           // Split block into even chunks for each thread
           const evenUnprocessedBlockRanges = splitRangeEvenly({
             blockRange,
             numSplit: numProcesses,
-            minBlocksPerRange: MIN_BLOCKS_PER_RANGE,
           });
 
-          // TODO: Replace Promise.all with multithreading
           await Promise.all(
             evenUnprocessedBlockRanges.map(
               ({ startBlockHeight, endBlockHeight }) =>
@@ -114,12 +102,33 @@ export default async function createBackfiller({
           });
         }
         break;
+      case BackfillOrder.CONCURRENT_SPECIFIC:
+        const {
+          blockHeightsToProcess: concurrentBlockHeightsToProcess,
+          shouldPersist: concurrentShouldPersist,
+        } = backfillSetup;
+
+        // Since this is I/O intensive, favor async/await as opposed to multithreading/multiprocessing
+        await Promise.all(
+          concurrentBlockHeightsToProcess.map((blockHeight) =>
+            backfillBlock({
+              blockHeight,
+              harness,
+              httpClient,
+              shouldPersist: concurrentShouldPersist,
+            })
+          )
+        );
+        break;
       default:
         logger.error(`${backfillOrder} is never`);
     }
     logger.info("Done with backfill!");
   }
 
+  /**
+   * Destroys the backfiller. Should only be called after the backfiller is complete.
+   */
   async function destroy() {
     // Clean up all indexer
     await harness.indexer.destroy();

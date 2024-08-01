@@ -142,6 +142,14 @@ test("Succeed in concurrent backfill", async () => {
   expect(blockHeights).toEqual([
     {
       startBlockHeight: 12000001,
+      endBlockHeight: 12000004,
+    },
+    {
+      startBlockHeight: 12000005,
+      endBlockHeight: 12000007,
+    },
+    {
+      startBlockHeight: 12000008,
       endBlockHeight: 12000010,
     },
   ]);
@@ -161,6 +169,40 @@ test("Succeed in specific backfill", async () => {
     {
       startBlockHeight: 12000003,
       endBlockHeight: 12000003,
+    },
+    {
+      startBlockHeight: 12000009,
+      endBlockHeight: 12000009,
+    },
+  ]);
+}, 15000);
+
+test("Succeed in concurrent specific backfill", async () => {
+  const blockHeights = await testBackfiller({
+    backfillOrder: "CONCURRENT_SPECIFIC",
+    blockHeightsToProcess: [12000001, 12000009, 12000003, 12000005, 11000003, 12000007],
+    shouldPersist: true,
+  });
+  expect(blockHeights).toEqual([
+    {
+      startBlockHeight: 11000003,
+      endBlockHeight: 11000003,
+    },
+    {
+      startBlockHeight: 12000001,
+      endBlockHeight: 12000001,
+    },
+    {
+      startBlockHeight: 12000003,
+      endBlockHeight: 12000003,
+    },
+    {
+      startBlockHeight: 12000005,
+      endBlockHeight: 12000005,
+    },
+    {
+      startBlockHeight: 12000007,
+      endBlockHeight: 12000007,
     },
     {
       startBlockHeight: 12000009,
