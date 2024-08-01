@@ -26,9 +26,9 @@ export default async function createBackfiller({
   );
 
   async function start() {
-    logger.info("Starting backfill...");
-
     const { backfillOrder } = backfillSetup;
+
+    logger.info(`Starting ${backfillOrder} backfill...`);
 
     // Process each range based on the order
     switch (backfillOrder) {
@@ -45,7 +45,7 @@ export default async function createBackfiller({
         );
 
         if (unprocessedBlockRanges.length > 0) {
-          logger.info("Backfilling the following ranges:");
+          logger.info(`Backfilling the following ranges:`);
           logger.info(unprocessedBlockRanges);
         }
 
@@ -66,6 +66,11 @@ export default async function createBackfiller({
         // Process blocks not seen by the backfiller
         const unprocessedConcurrentBlockRanges =
           await harness.indexer.persister.getUnprocessedBlockRanges();
+
+        if (unprocessedConcurrentBlockRanges.length > 0) {
+          logger.info(`Backfilling the following ranges:`);
+          logger.info(unprocessedConcurrentBlockRanges);
+        }
 
         const { numProcesses } = backfillSetup;
 
