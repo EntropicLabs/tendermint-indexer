@@ -22,8 +22,8 @@ export type CreateBackfillerParams = {
     | {
         // Backfill specified blocks in order of position in blockHeightsToProcess
         backfillOrder:
-          | typeof BackfillOrder.SPECIFIC
-          | typeof BackfillOrder.CONCURRENT_SPECIFIC;
+          | typeof BackfillOrder.CONCURRENT_SPECIFIC
+          | typeof BackfillOrder.SPECIFIC;
         blockHeightsToProcess: number[];
         // If false, skip persisting each block after indexing
         shouldPersist: boolean;

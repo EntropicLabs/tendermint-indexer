@@ -6,10 +6,10 @@ export const BackfillOrder = {
   DESCENDING: "DESCENDING",
   // Process all unprocessed block ranges in a concurrent order
   CONCURRENT: "CONCURRENT",
-  // Only processess specified blocks
-  SPECIFIC: "SPECIFIC",
   // Process specified blocks in a concurrent order
   CONCURRENT_SPECIFIC: "CONCURRENT_SPECIFIC",
+  // Only processess specified blocks
+  SPECIFIC: "SPECIFIC",
 } as const;
 
 export type BackfillOrder = ValuesUnion<typeof BackfillOrder>;
