@@ -5,11 +5,9 @@ import type { BlockRange } from "../types/BlockRange";
  * with a minimum size
  */
 export function splitRangeEvenly({
-  minBlocksPerRange,
   numSplit,
   blockRange,
 }: {
-  minBlocksPerRange: number;
   numSplit: number;
   blockRange: BlockRange;
 }): BlockRange[] {
@@ -17,7 +15,9 @@ export function splitRangeEvenly({
   const { startBlockHeight, endBlockHeight } = blockRange;
 
   const numBlocksInRange = endBlockHeight - startBlockHeight + 1;
-  if (numBlocksInRange <= minBlocksPerRange || numBlocksInRange < numSplit) {
+
+  // Ensure that each split gets at least one block
+  if (numBlocksInRange < numSplit) {
     return [
       {
         startBlockHeight,
@@ -41,30 +41,4 @@ export function splitRangeEvenly({
   }
 
   return evenblockRanges;
-}
-
-/**
- * Splits block ranges into a specific number of contiguous block ranges
- * with a minimum size
- */
-export function splitRangesEvenly({
-  minBlocksPerRange,
-  numSplit,
-  blockRanges,
-}: {
-  minBlocksPerRange: number;
-  numSplit: number;
-  blockRanges: BlockRange[];
-}) {
-  return blockRanges.reduce(
-    (prevRanges: BlockRange[], currRange) =>
-      prevRanges.concat(
-        splitRangeEvenly({
-          blockRange: currRange,
-          numSplit,
-          minBlocksPerRange,
-        })
-      ),
-    []
-  );
 }

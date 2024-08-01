@@ -12,13 +12,13 @@ import { CometHttpClient } from "./clients/cometHttpClient";
 import { sleep } from "./utils/sleep";
 import { DEFAULT_RETRIER } from "./modules/retry";
 
-// Delay between each time the indexer queue is processed 
+// Delay between each time the indexer queue is processed
 const PROCESS_QUEUE_EVERY_MS = 100;
 // Delay before the indexer and its subscriptions are destroyed
 const DESTROY_DELAY_MS = 3000;
 
 /**
- * Create an indexer for indexing live, new block data. 
+ * Create an indexer for indexing live, new block data.
  * Returns a start, connection status, and destroy callback.
  */
 export default async function createIndexer({
@@ -27,6 +27,7 @@ export default async function createIndexer({
 }: CreateIndexerParams) {
   setMinLogLevel(minLogLevel);
   let prevBlockHeight = 0;
+  let isDestroyed = false;
   const tmEventQueue: (NewBlockEvent | ConnectionEvent)[] = [];
 
   const addEvent: AddEventFunction = (event) => {
@@ -41,7 +42,7 @@ export default async function createIndexer({
 
   const httpClient = await CometHttpClient.create(
     harness.httpUrl,
-    harness.retrier || DEFAULT_RETRIER,
+    harness.retrier || DEFAULT_RETRIER
   );
 
   async function processTmEventQueue() {
@@ -59,7 +60,7 @@ export default async function createIndexer({
 
       if (tmEvent.blockHeight < prevBlockHeight) {
         throw new Error(
-          `Block ${tmEvent.blockHeight} is queued after block ${prevBlockHeight}`,
+          `Block ${tmEvent.blockHeight} is queued after block ${prevBlockHeight}`
         );
       }
 
@@ -77,9 +78,12 @@ export default async function createIndexer({
       prevBlockHeight = tmEvent.blockHeight;
     }
 
-    setTimeout(async () => {
-      await processTmEventQueue();
-    }, PROCESS_QUEUE_EVERY_MS);
+    // Check if the indexer is destroyed before reprocessing the queue
+    if (!isDestroyed) {
+      setTimeout(async () => {
+        await processTmEventQueue();
+      }, PROCESS_QUEUE_EVERY_MS);
+    }
   }
 
   async function start() {
@@ -87,13 +91,19 @@ export default async function createIndexer({
     processTmEventQueue();
   }
 
+  /**
+   * Destroys the indexer. Can be called at any time.
+   * @param delay Millisecond delay for indexers to finish up indexing.
+   */
   async function destroy(delay = DESTROY_DELAY_MS) {
     // Prevent new blocks from being pushed to the event queue
     await subscriptionClient.disconnect();
 
-    // Give some time for the queue to finish up
-    await sleep(delay);
     tmEventQueue.splice(0, tmEventQueue.length);
+    isDestroyed = true;
+
+    // Give some time for the indexers to finish up
+    await sleep(delay);
 
     // Clean up all indexers
     await Promise.all(harness.indexers.map((indexer) => indexer.destroy()));
