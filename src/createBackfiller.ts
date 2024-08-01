@@ -20,7 +20,9 @@ export default async function createBackfiller({
 
   const httpClient = await CometHttpClient.create(
     harness.httpUrl,
-    harness.retrier || DEFAULT_RETRIER
+    harness.retrier || DEFAULT_RETRIER,
+    // Batch concurrent http requests for block data
+    backfillSetup.backfillOrder === BackfillOrder.CONCURRENT_SPECIFIC
   );
 
   async function start() {
