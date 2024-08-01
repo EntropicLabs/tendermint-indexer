@@ -9,6 +9,10 @@ import { createErrorRetrier } from "../modules/retry";
 import logger from "../modules/logger";
 import type { BlockData } from "../types/BlockData";
 
+/**
+ * Parameters found to work well with larger backfills, but may need further
+ * benchmarking/tweaking.
+ */
 const BATCH_DISPATCH_INTERVAL = 200;
 const BATCH_SIZE_LIMIT = 20;
 

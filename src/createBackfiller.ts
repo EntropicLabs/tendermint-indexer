@@ -76,7 +76,6 @@ export default async function createBackfiller({
             numSplit: numProcesses,
           });
 
-          // Since this is I/O intensive, favor async/await as opposed to multithreading/multiprocessing
           await Promise.all(
             evenUnprocessedBlockRanges.map(
               ({ startBlockHeight, endBlockHeight }) =>
